@@ -1,11 +1,25 @@
 import { Building2, Facebook, Linkedin, Instagram, Mail, Phone } from 'lucide-react';
 import { CONTACT_INFO } from '../utils/constants';
+import { useAutoTranslate } from '../contexts/TranslationContext';
 
 interface FooterProps {
   onNavigate: (page: string) => void;
 }
 
 export default function Footer({ onNavigate }: FooterProps) {
+  const { translatedText: tagline } = useAutoTranslate('Making LLC formation simple, affordable, and transparent for entrepreneurs nationwide.');
+  const { translatedText: servicesHeading } = useAutoTranslate('Services');
+  const { translatedText: llcFormation } = useAutoTranslate('LLC Formation');
+  const { translatedText: einReg } = useAutoTranslate('EIN Registration');
+  const { translatedText: regAgent } = useAutoTranslate('Registered Agent');
+  const { translatedText: compliance } = useAutoTranslate('Compliance Services');
+  const { translatedText: companyHeading } = useAutoTranslate('Company');
+  const { translatedText: aboutUs } = useAutoTranslate('About Us');
+  const { translatedText: howItWorks } = useAutoTranslate('How It Works');
+  const { translatedText: contactUsLink } = useAutoTranslate('Contact Us');
+  const { translatedText: privacyPolicy } = useAutoTranslate('Privacy Policy');
+  const { translatedText: contactHeading } = useAutoTranslate('Contact');
+  const { translatedText: copyrightText } = useAutoTranslate('OGS Solution. All rights reserved.');
   return (
     <footer className="bg-gray-900 dark:bg-black text-gray-300 transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -16,7 +30,7 @@ export default function Footer({ onNavigate }: FooterProps) {
               <span className="ml-2 text-xl font-bold text-white">OGS Solution</span>
             </div>
             <p className="text-sm text-gray-400 mb-4">
-              Making LLC formation simple, affordable, and transparent for entrepreneurs nationwide.
+              {tagline}
             </p>
             <div className="flex space-x-4">
               <a
@@ -50,14 +64,14 @@ export default function Footer({ onNavigate }: FooterProps) {
           </div>
 
           <div>
-            <h3 className="text-white font-semibold mb-4">Services</h3>
+            <h3 className="text-white font-semibold mb-4">{servicesHeading}</h3>
             <ul className="space-y-2 text-sm">
               <li>
                 <button
                   onClick={() => onNavigate('services')}
                   className="hover:text-blue-500 transition-colors"
                 >
-                  LLC Formation
+                  {llcFormation}
                 </button>
               </li>
               <li>
@@ -65,7 +79,7 @@ export default function Footer({ onNavigate }: FooterProps) {
                   onClick={() => onNavigate('services')}
                   className="hover:text-blue-500 transition-colors"
                 >
-                  EIN Registration
+                  {einReg}
                 </button>
               </li>
               <li>
@@ -73,7 +87,7 @@ export default function Footer({ onNavigate }: FooterProps) {
                   onClick={() => onNavigate('services')}
                   className="hover:text-blue-500 transition-colors"
                 >
-                  Registered Agent
+                  {regAgent}
                 </button>
               </li>
               <li>
@@ -81,21 +95,21 @@ export default function Footer({ onNavigate }: FooterProps) {
                   onClick={() => onNavigate('services')}
                   className="hover:text-blue-500 transition-colors"
                 >
-                  Compliance Services
+                  {compliance}
                 </button>
               </li>
             </ul>
           </div>
 
           <div>
-            <h3 className="text-white font-semibold mb-4">Company</h3>
+            <h3 className="text-white font-semibold mb-4">{companyHeading}</h3>
             <ul className="space-y-2 text-sm">
               <li>
                 <button
                   onClick={() => onNavigate('home')}
                   className="hover:text-blue-500 transition-colors"
                 >
-                  About Us
+                  {aboutUs}
                 </button>
               </li>
               <li>
@@ -103,7 +117,7 @@ export default function Footer({ onNavigate }: FooterProps) {
                   onClick={() => onNavigate('how-it-works')}
                   className="hover:text-blue-500 transition-colors"
                 >
-                  How It Works
+                  {howItWorks}
                 </button>
               </li>
               <li>
@@ -111,19 +125,19 @@ export default function Footer({ onNavigate }: FooterProps) {
                   onClick={() => onNavigate('contact')}
                   className="hover:text-blue-500 transition-colors"
                 >
-                  Contact Us
+                  {contactUsLink}
                 </button>
               </li>
               <li>
                 <button className="hover:text-blue-500 transition-colors">
-                  Privacy Policy
+                  {privacyPolicy}
                 </button>
               </li>
             </ul>
           </div>
 
           <div>
-            <h3 className="text-white font-semibold mb-4">Contact</h3>
+            <h3 className="text-white font-semibold mb-4">{contactHeading}</h3>
             <ul className="space-y-3 text-sm">
               <li className="flex items-start space-x-2">
                 <Mail className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
@@ -148,7 +162,7 @@ export default function Footer({ onNavigate }: FooterProps) {
         </div>
 
         <div className="border-t border-gray-800 mt-8 pt-8 text-sm text-center text-gray-400">
-          <p>&copy; {new Date().getFullYear()} OGS Solution. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} {copyrightText}</p>
         </div>
       </div>
     </footer>

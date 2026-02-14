@@ -1,6 +1,17 @@
-import { supabase } from './supabase';
+import { 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  doc, 
+  getDoc,
+  query, 
+  where, 
+  orderBy, 
+  getDocs
+} from 'firebase/firestore';
+import { db } from './firebase-types';
 
-export type PaymentMethod = 'bank' | 'crypto' | 'cashplus' | 'interac';
+export type PaymentMethod = 'bank' | 'crypto' | 'cashplus';
 
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'verified';
 
@@ -38,13 +49,6 @@ export interface PaymentDetails {
     currency: string;
     phone: string;
   };
-  interac: {
-    email: string;
-    amount: number;
-    currency: string;
-    autoDeposit: boolean;
-    reference: string;
-  };
 }
 
 /**
@@ -57,26 +61,31 @@ export async function createPayment(
   method: PaymentMethod
 ) {
   try {
-    const { data, error } = await supabase
-      .from('payments')
-      .insert([
-        {
-          application_id: applicationId,
-          user_id: userId,
-          amount,
-          currency: 'MAD',
-          method,
-          status: 'pending',
-          payment_reference: '',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ])
-      .select()
-      .single();
+    const now = new Date().toISOString();
+    const docRef = await addDoc(collection(db, 'payments'), {
+      application_id: applicationId,
+      user_id: userId,
+      amount,
+      currency: 'MAD',
+      method,
+      status: 'pending',
+      payment_reference: '',
+      created_at: now,
+      updated_at: now,
+    });
 
-    if (error) throw error;
-    return data;
+    return {
+      id: docRef.id,
+      application_id: applicationId,
+      user_id: userId,
+      amount,
+      currency: 'MAD',
+      method,
+      status: 'pending',
+      payment_reference: '',
+      created_at: now,
+      updated_at: now,
+    };
   } catch (error) {
     console.error('Error creating payment:', error);
     throw error;
@@ -91,18 +100,15 @@ export async function updatePaymentReference(
   paymentReference: string
 ) {
   try {
-    const { data, error } = await supabase
-      .from('payments')
-      .update({
-        payment_reference: paymentReference,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', paymentId)
-      .select()
-      .single();
+    const paymentRef = doc(db, 'payments', paymentId);
+    const updateData = {
+      payment_reference: paymentReference,
+      updated_at: new Date().toISOString(),
+    };
+    await updateDoc(paymentRef, updateData);
 
-    if (error) throw error;
-    return data;
+    const snapshot = await getDoc(paymentRef);
+    return { id: snapshot.id, ...snapshot.data() };
   } catch (error) {
     console.error('Error updating payment reference:', error);
     throw error;
@@ -114,31 +120,27 @@ export async function updatePaymentReference(
  */
 export async function verifyPayment(paymentId: string) {
   try {
-    const { data, error } = await supabase
-      .from('payments')
-      .update({
-        status: 'verified',
-        verified_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', paymentId)
-      .select()
-      .single();
+    const paymentRef = doc(db, 'payments', paymentId);
+    const updateData = {
+      status: 'verified',
+      verified_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    await updateDoc(paymentRef, updateData);
 
-    if (error) throw error;
+    const snapshot = await getDoc(paymentRef);
+    const paymentData = snapshot.data();
 
     // Update the associated application payment status
-    if (data) {
-      await supabase
-        .from('llc_applications')
-        .update({
-          payment_status: 'completed',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', data.application_id);
+    if (paymentData?.application_id) {
+      const appRef = doc(db, 'llc_applications', paymentData.application_id);
+      await updateDoc(appRef, {
+        payment_status: 'completed',
+        updated_at: new Date().toISOString(),
+      });
     }
 
-    return data;
+    return { id: snapshot.id, ...paymentData };
   } catch (error) {
     console.error('Error verifying payment:', error);
     throw error;
@@ -150,14 +152,11 @@ export async function verifyPayment(paymentId: string) {
  */
 export async function getPayment(paymentId: string): Promise<Payment> {
   try {
-    const { data, error } = await supabase
-      .from('payments')
-      .select('*')
-      .eq('id', paymentId)
-      .single();
-
-    if (error) throw error;
-    return data;
+    const snapshot = await getDoc(doc(db, 'payments', paymentId));
+    if (!snapshot.exists()) {
+      throw new Error('Payment not found');
+    }
+    return { id: snapshot.id, ...snapshot.data() } as Payment;
   } catch (error) {
     console.error('Error fetching payment:', error);
     throw error;
@@ -171,17 +170,16 @@ export async function getApplicationPayments(
   applicationId: string
 ): Promise<Payment[]> {
   try {
-    const { data, error } = await supabase
-      .from('payments')
-      .select('*')
-      .eq('application_id', applicationId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
+    const q = query(
+      collection(db, 'payments'),
+      where('application_id', '==', applicationId),
+      orderBy('created_at', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Payment[];
   } catch (error) {
     console.error('Error fetching application payments:', error);
-    throw error;
+    return [];
   }
 }
 
@@ -190,17 +188,16 @@ export async function getApplicationPayments(
  */
 export async function getUserPayments(userId: string): Promise<Payment[]> {
   try {
-    const { data, error } = await supabase
-      .from('payments')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
+    const q = query(
+      collection(db, 'payments'),
+      where('user_id', '==', userId),
+      orderBy('created_at', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Payment[];
   } catch (error) {
     console.error('Error fetching user payments:', error);
-    throw error;
+    return [];
   }
 }
 
@@ -209,17 +206,16 @@ export async function getUserPayments(userId: string): Promise<Payment[]> {
  */
 export async function getPendingPayments(): Promise<Payment[]> {
   try {
-    const { data, error } = await supabase
-      .from('payments')
-      .select('*')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true });
-
-    if (error) throw error;
-    return data || [];
+    const q = query(
+      collection(db, 'payments'),
+      where('status', '==', 'pending'),
+      orderBy('created_at', 'asc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Payment[];
   } catch (error) {
     console.error('Error fetching pending payments:', error);
-    throw error;
+    return [];
   }
 }
 
@@ -230,8 +226,8 @@ export function subscribeToPaymentUpdates(
   applicationId: string,
   callback: (payment: Payment) => void
 ) {
-  // Note: Supabase real-time subscriptions require channel subscription
-  // For now, we'll return a polling-based subscription
+  // Polling-based subscription for payment updates
+  // Can be upgraded to Firebase Realtime listeners for true real-time updates
   const interval = setInterval(async () => {
     try {
       const payments = await getApplicationPayments(applicationId);
@@ -277,11 +273,36 @@ export const PAYMENT_DETAILS: PaymentDetails = {
     currency: 'MAD',
     phone: '+212 653-498642',
   },
-  interac: {
-    email: 'payments@ogssolutions.com',
-    amount: 1000,
-    currency: 'CAD',
-    autoDeposit: true,
-    reference: 'OGS-SOLUTIONS',
-  },
 };
+/**
+ * Get all applications with paid or advance payment status
+ */
+export async function getPaidApplications() {
+  try {
+    // Get paid applications
+    const paidQuery = query(
+      collection(db, 'llc_applications'),
+      where('payment_status', '==', 'paid')
+    );
+    const paidSnapshot = await getDocs(paidQuery);
+    const paidApps = paidSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // Get advance applications
+    const advanceQuery = query(
+      collection(db, 'llc_applications'),
+      where('payment_status', '==', 'advance')
+    );
+    const advanceSnapshot = await getDocs(advanceQuery);
+    const advanceApps = advanceSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    // Combine both arrays
+    const apps = [...paidApps, ...advanceApps];
+    
+    // Sort by created_at in descending order (application code instead of Firestore)
+    apps.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return apps;
+  } catch (error) {
+    console.error('Error fetching paid applications:', error);
+    return [];
+  }
+}

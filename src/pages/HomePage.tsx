@@ -1,6 +1,15 @@
 import { ArrowRight, CheckCircle, Clock, Shield, DollarSign, Users, Star, Sparkles, Zap, Award } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import FAQSection from '../components/FAQSection';
+import { useAutoTranslate } from '../contexts/TranslationContext';
+import TranslatedText from '../components/TranslatedText';
+import SocialProofSection from '../components/SocialProofSection';
+import ProcessTimeline from '../components/ProcessTimeline';
+import PricingComparisonTable from '../components/PricingComparisonTable';
+import SecurityComplianceSection from '../components/SecurityComplianceSection';
+import StateBenefitsComparison from '../components/StateBenefitsComparison';
+import CompanyCredibility from '../components/CompanyCredibility';
+import GuaranteeSection from '../components/GuaranteeSection';
 
 interface HomePageProps {
   onNavigate: (page: string) => void;
@@ -8,6 +17,71 @@ interface HomePageProps {
 
 export default function HomePage({ onNavigate }: HomePageProps) {
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set());
+  
+  // Translate key texts
+  const { translatedText: heroTitle } = useAutoTranslate('Start Your LLC');
+  const { translatedText: heroSubtitle } = useAutoTranslate('Today');
+  const { translatedText: heroDesc } = useAutoTranslate('Form your Limited Liability Company in any U.S. state with confidence.\nSimple, affordable, and secure business formation.');
+  const { translatedText: getStartedBtn } = useAutoTranslate('Get Started Now');
+  const { translatedText: learnBtn } = useAutoTranslate('Learn How It Works');
+  const { translatedText: noFeesText } = useAutoTranslate('No Hidden Fees');
+  const { translatedText: satisfactionText } = useAutoTranslate('100% Satisfaction Guarantee');
+  const { translatedText: processingText } = useAutoTranslate('Same-Day Processing');
+  const { translatedText: trustedText } = useAutoTranslate('Trusted by 10,000+ Entrepreneurs');
+  const { translatedText: whyChooseUs } = useAutoTranslate('Why Choose Us');
+  const { translatedText: whyChooseTitle } = useAutoTranslate('Why Choose OGS Solution?');
+  const { translatedText: whyChooseDesc } = useAutoTranslate('We make LLC formation easy, fast, and affordable for entrepreneurs nationwide.');
+  const { translatedText: simpleProcess } = useAutoTranslate('Simple Process');
+  const { translatedText: howItWorksTitle } = useAutoTranslate('How It Works');
+  const { translatedText: fourStepsDesc } = useAutoTranslate('Four simple steps to get your LLC up and running.');
+  const { translatedText: startLlcNow } = useAutoTranslate('Start Your LLC Now');
+  const { translatedText: clientSuccessStories } = useAutoTranslate('Client Success Stories');
+  const { translatedText: whatClientsLabel } = useAutoTranslate('What Our Clients Say');
+  const { translatedText: joinThousandsText } = useAutoTranslate('Join thousands of entrepreneurs who trust OGS Solution.');
+  const { translatedText: readyToStart } = useAutoTranslate('Ready to Start Your Business?');
+  const { translatedText: readyDesc } = useAutoTranslate('Join thousands of entrepreneurs who have successfully formed their LLCs with OGS Solution.');
+  const { translatedText: getStartedToday } = useAutoTranslate('Get Started Today');
+  const { translatedText: talkExpert } = useAutoTranslate('Talk to an Expert');
+  
+  // Testimonials translations
+  const { translatedText: sarahName } = useAutoTranslate('Sarah Johnson');
+  const { translatedText: sarahRole } = useAutoTranslate('E-commerce Founder');
+  const { translatedText: sarahContent } = useAutoTranslate('OGS Solution made forming my LLC incredibly easy. The process was straightforward and completed in just 3 days!');
+  
+  const { translatedText: michaelName } = useAutoTranslate('Michael Chen');
+  const { translatedText: michaelRole } = useAutoTranslate('Consultant');
+  const { translatedText: michaelContent } = useAutoTranslate('Best decision for my business. The Colorado package included everything I needed, and support was outstanding.');
+  
+  const { translatedText: emilyName } = useAutoTranslate('Emily Rodriguez');
+  const { translatedText: emilyRole } = useAutoTranslate('Real Estate Investor');
+  const { translatedText: emilyContent } = useAutoTranslate('Professional, efficient, and affordable. I\'ve recommended OGS Solution to all my business partners.');
+
+  const testimonials = [
+    {
+      name: sarahName,
+      role: sarahRole,
+      content: sarahContent,
+      rating: 5,
+      avatar: 'SJ',
+      color: 'from-pink-500 to-rose-500'
+    },
+    {
+      name: michaelName,
+      role: michaelRole,
+      content: michaelContent,
+      rating: 5,
+      avatar: 'MC',
+      color: 'from-blue-500 to-indigo-500'
+    },
+    {
+      name: emilyName,
+      role: emilyRole,
+      content: emilyContent,
+      rating: 5,
+      avatar: 'ER',
+      color: 'from-purple-500 to-violet-500'
+    },
+  ];
 
   useEffect(() => {
     const observers: IntersectionObserver[] = [];
@@ -70,33 +144,6 @@ export default function HomePage({ onNavigate }: HomePageProps) {
     },
   ];
 
-  const testimonials = [
-    {
-      name: 'Sarah Johnson',
-      role: 'E-commerce Founder',
-      content: 'OGS Solution made forming my LLC incredibly easy. The process was straightforward and completed in just 3 days!',
-      rating: 5,
-      avatar: 'SJ',
-      color: 'from-pink-500 to-rose-500'
-    },
-    {
-      name: 'Michael Chen',
-      role: 'Consultant',
-      content: 'Best decision for my business. The Colorado package included everything I needed, and support was outstanding.',
-      rating: 5,
-      avatar: 'MC',
-      color: 'from-blue-500 to-indigo-500'
-    },
-    {
-      name: 'Emily Rodriguez',
-      role: 'Real Estate Investor',
-      content: 'Professional, efficient, and affordable. I\'ve recommended OGS Solution to all my business partners.',
-      rating: 5,
-      avatar: 'ER',
-      color: 'from-purple-500 to-violet-500'
-    },
-  ];
-
   const steps = [
     {
       number: '01',
@@ -143,20 +190,19 @@ export default function HomePage({ onNavigate }: HomePageProps) {
             {/* Badge */}
             <div className="inline-flex items-center space-x-2 px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white text-sm font-semibold border border-white/30 mb-8 animate-fade-in-up">
               <Sparkles className="h-4 w-4" />
-              <span>Trusted by 10,000+ Entrepreneurs</span>
+              <span>{trustedText}</span>
             </div>
 
             {/* Main heading */}
             <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold text-white mb-8 leading-tight animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-              Start Your LLC
+              {heroTitle}
               <span className="block bg-gradient-to-r from-yellow-300 via-pink-300 to-purple-300 bg-clip-text text-transparent">
-                Today
+                {heroSubtitle}
               </span>
             </h1>
 
             <p className="text-xl md:text-2xl text-blue-50 mb-12 leading-relaxed max-w-3xl mx-auto animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-              Form your Limited Liability Company in any U.S. state with confidence.
-              Simple, affordable, and secure business formation.
+              {heroDesc}
             </p>
 
             {/* CTA Buttons */}
@@ -165,14 +211,14 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                 onClick={() => onNavigate('get-started')}
                 className="group px-10 py-5 bg-white text-blue-600 rounded-2xl hover:bg-blue-50 transition-all font-bold text-lg shadow-2xl hover:shadow-3xl hover:scale-105 flex items-center justify-center space-x-3"
               >
-                <span>Get Started Now</span>
+                <span>{getStartedBtn}</span>
                 <ArrowRight className="h-6 w-6 group-hover:translate-x-2 transition-transform" />
               </button>
               <button
                 onClick={() => onNavigate('how-it-works')}
                 className="px-10 py-5 bg-white/10 backdrop-blur-md text-white border-2 border-white/30 rounded-2xl hover:bg-white/20 transition-all font-bold text-lg"
               >
-                Learn How It Works
+                {learnBtn}
               </button>
             </div>
 
@@ -180,15 +226,15 @@ export default function HomePage({ onNavigate }: HomePageProps) {
             <div className="flex flex-wrap items-center justify-center gap-8 text-white/90 animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
               <div className="flex items-center space-x-2">
                 <CheckCircle className="h-6 w-6 text-green-300" />
-                <span className="font-medium">No Hidden Fees</span>
+                <span className="font-medium">{noFeesText}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <CheckCircle className="h-6 w-6 text-green-300" />
-                <span className="font-medium">100% Satisfaction Guarantee</span>
+                <span className="font-medium">{satisfactionText}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <CheckCircle className="h-6 w-6 text-green-300" />
-                <span className="font-medium">Same-Day Processing</span>
+                <span className="font-medium">{processingText}</span>
               </div>
             </div>
           </div>
@@ -208,13 +254,13 @@ export default function HomePage({ onNavigate }: HomePageProps) {
           <div className={`text-center mb-20 transition-all duration-1000 ${visibleSections.has('benefits-section') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             <div className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 rounded-full text-blue-600 dark:text-blue-400 text-sm font-semibold mb-6">
               <Award className="h-4 w-4" />
-              <span>Why Choose Us</span>
+              <span>{whyChooseUs}</span>
             </div>
             <h2 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-              Why Choose OGS Solution?
+              {whyChooseTitle}
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              We make LLC formation easy, fast, and affordable for entrepreneurs nationwide.
+              {whyChooseDesc}
             </p>
           </div>
 
@@ -237,10 +283,10 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                   <benefit.icon className="h-8 w-8 text-blue-600 dark:text-blue-400 group-hover:animate-pulse" />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                  {benefit.title}
+                  <TranslatedText text={benefit.title} as="span" />
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                  {benefit.description}
+                  <TranslatedText text={benefit.description} as="span" />
                 </p>
                 
                 {/* Decorative gradient on hover */}
@@ -260,13 +306,13 @@ export default function HomePage({ onNavigate }: HomePageProps) {
           <div className={`text-center mb-20 transition-all duration-1000 ${visibleSections.has('steps-section') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             <div className="inline-flex items-center space-x-2 px-4 py-2 bg-purple-100 dark:bg-purple-900/30 rounded-full text-purple-600 dark:text-purple-400 text-sm font-semibold mb-6">
               <Zap className="h-4 w-4" />
-              <span>Simple Process</span>
+              <span>{simpleProcess}</span>
             </div>
             <h2 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-              How It Works
+              {howItWorksTitle}
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              Four simple steps to get your LLC up and running.
+              {fourStepsDesc}
             </p>
           </div>
 
@@ -297,10 +343,10 @@ export default function HomePage({ onNavigate }: HomePageProps) {
                   </div>
                   
                   <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                    {step.title}
+                    <TranslatedText text={step.title} as="span" />
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                    {step.description}
+                    <TranslatedText text={step.description} as="span" />
                   </p>
                 </div>
                 
@@ -319,7 +365,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
               onClick={() => onNavigate('get-started')}
               className="group px-10 py-5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl hover:from-blue-700 hover:to-purple-700 transition-all font-bold text-lg shadow-2xl hover:shadow-3xl hover:scale-105 inline-flex items-center space-x-3"
             >
-              <span>Start Your LLC Now</span>
+              <span>{startLlcNow}</span>
               <ArrowRight className="h-6 w-6 group-hover:translate-x-2 transition-transform" />
             </button>
           </div>
@@ -332,13 +378,13 @@ export default function HomePage({ onNavigate }: HomePageProps) {
           <div className={`text-center mb-20 transition-all duration-1000 ${visibleSections.has('testimonials-section') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             <div className="inline-flex items-center space-x-2 px-4 py-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-full text-yellow-600 dark:text-yellow-400 text-sm font-semibold mb-6">
               <Star className="h-4 w-4 fill-current" />
-              <span>Client Success Stories</span>
+              <span>{clientSuccessStories}</span>
             </div>
             <h2 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-              What Our Clients Say
+              {whatClientsLabel}
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              Join thousands of entrepreneurs who trust OGS Solution.
+              {joinThousandsText}
             </p>
           </div>
 
@@ -396,6 +442,27 @@ export default function HomePage({ onNavigate }: HomePageProps) {
         </div>
       </section>
 
+      {/* Social Proof Section */}
+      <SocialProofSection isVisible={visibleSections.has('testimonials-section')} />
+
+      {/* Security & Compliance Section */}
+      <SecurityComplianceSection />
+
+      {/* Process Timeline Section */}
+      <ProcessTimeline />
+
+      {/* Pricing Comparison Section */}
+      <PricingComparisonTable />
+
+      {/* State Benefits Comparison Section */}
+      <StateBenefitsComparison />
+
+      {/* Company Credibility Section */}
+      <CompanyCredibility />
+
+      {/* Guarantee Section */}
+      <GuaranteeSection />
+
       {/* FAQ Section */}
       <FAQSection />
 
@@ -409,10 +476,10 @@ export default function HomePage({ onNavigate }: HomePageProps) {
 
         <div className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10 transition-all duration-1000 ${visibleSections.has('final-cta-section') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
           <h2 className="text-5xl md:text-6xl font-bold text-white mb-6">
-            Ready to Start Your Business?
+            {readyToStart}
           </h2>
           <p className="text-xl md:text-2xl text-blue-100 mb-12 leading-relaxed">
-            Join thousands of entrepreneurs who have successfully formed their LLCs with OGS Solution.
+            {readyDesc}
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -420,7 +487,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
               onClick={() => onNavigate('get-started')}
               className="group px-10 py-5 bg-white text-blue-600 rounded-2xl hover:bg-blue-50 transition-all font-bold text-lg shadow-2xl hover:shadow-3xl hover:scale-105 inline-flex items-center justify-center space-x-3"
             >
-              <span>Get Started Today</span>
+              <span>{getStartedToday}</span>
               <ArrowRight className="h-6 w-6 group-hover:translate-x-2 transition-transform" />
             </button>
             
@@ -428,7 +495,7 @@ export default function HomePage({ onNavigate }: HomePageProps) {
               onClick={() => onNavigate('contact')}
               className="px-10 py-5 bg-white/10 backdrop-blur-md text-white border-2 border-white/30 rounded-2xl hover:bg-white/20 transition-all font-bold text-lg"
             >
-              Talk to an Expert
+              {talkExpert}
             </button>
           </div>
 

@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getFunctions } from 'firebase/functions';
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
@@ -30,13 +31,22 @@ export const db = getFirestore(app);
 // Initialize Cloud Storage
 export const storage = getStorage(app);
 
+// Initialize Cloud Functions
+export const functions = getFunctions(app);
+
 // Optional: Connect to Firebase Emulator Suite for local development
 // Uncomment the following lines if you want to use local emulators
 /*
+import { connectAuthEmulator } from 'firebase/auth';
+import { connectFirestoreEmulator } from 'firebase/firestore';
+import { connectStorageEmulator } from 'firebase/storage';
+import { connectFunctionsEmulator } from 'firebase/functions';
+
 const HOST = 'localhost';
 const AUTH_PORT = 9099;
 const FIRESTORE_PORT = 8080;
 const STORAGE_PORT = 9199;
+const FUNCTIONS_PORT = 5001;
 
 if (window.location.hostname === 'localhost') {
   // Auth Emulator
@@ -47,6 +57,9 @@ if (window.location.hostname === 'localhost') {
   
   // Storage Emulator
   connectStorageEmulator(storage, HOST, STORAGE_PORT);
+  
+  // Functions Emulator
+  connectFunctionsEmulator(functions, HOST, FUNCTIONS_PORT);
 }
 */
 

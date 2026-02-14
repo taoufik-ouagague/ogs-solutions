@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { AlertCircle, CheckCircle, Shield, Lock, Mail, Sparkles } from 'lucide-react';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../lib/firebase-types';
 
 interface AdminSetupPageProps {
   onNavigate: (page: string) => void;
@@ -21,33 +23,18 @@ export default function AdminSetupPage({ onNavigate }: AdminSetupPageProps) {
     setSuccess(false);
 
     try {
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/setup-admin`;
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (data.message?.includes('already exists')) {
-          setSuccess(true);
-          setMessage('Admin account already exists. You can now log in.');
-          setTimeout(() => onNavigate('admin-login'), 2000);
-        } else {
-          setError(data.message || data.error || 'Failed to create admin account');
-        }
-      } else {
+      await createUserWithEmailAndPassword(auth, email, password);
+      setSuccess(true);
+      setMessage('Admin account created successfully! Redirecting to login...');
+      setTimeout(() => onNavigate('admin-login'), 2000);
+    } catch (err: any) {
+      if (err.code === 'auth/email-already-in-use') {
         setSuccess(true);
-        setMessage('Admin account created successfully! Redirecting to login...');
+        setMessage('Admin account already exists. You can now log in.');
         setTimeout(() => onNavigate('admin-login'), 2000);
+      } else {
+        setError(err.message || 'Failed to create admin account');
       }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -100,6 +87,7 @@ export default function AdminSetupPage({ onNavigate }: AdminSetupPageProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white transition-all"
+                  autoComplete="email"
                   required
                 />
               </div>
@@ -116,6 +104,7 @@ export default function AdminSetupPage({ onNavigate }: AdminSetupPageProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-700 dark:text-white transition-all"
+                  autoComplete="new-password"
                   required
                 />
               </div>

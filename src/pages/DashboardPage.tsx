@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
-import { FileText, Clock, CheckCircle, XCircle, LogOut, User, Sparkles } from 'lucide-react';
+import { FileText, Clock, CheckCircle, XCircle, LogOut, User, Sparkles, Edit2, Trash2, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { queryCollection } from '../lib/firebaseUtils';
+import { useAutoTranslate } from '../contexts/TranslationContext';
+import { queryCollection, deleteDocument, getDocument } from '../lib/firebaseUtils';
 import { where } from 'firebase/firestore';
+import { migrateUserIds } from '../lib/migrate-user-ids';
 import { US_STATES } from '../utils/constants';
+import { toast } from '../utils/toast';
+import { showConfirm } from '../utils/confirmDialog';
+import { logActivity } from '../lib/activityLog';
+import EditApplicationModal from '../components/EditApplicationModal';
+import MessagesDisplay from '../components/MessagesDisplay';
 
 interface LLCApplication {
   id: string;
@@ -15,6 +22,7 @@ interface LLCApplication {
   form_data: Record<string, unknown>;
   payment_status: 'pending' | 'completed' | 'failed';
   created_at: string;
+  updated_at?: string;
 }
 
 interface DashboardPageProps {
@@ -26,6 +34,42 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
   const [applications, setApplications] = useState<LLCApplication[]>([]);
   const [loading, setLoading] = useState(false);
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set());
+  const [editingApplication, setEditingApplication] = useState<LLCApplication | null>(null);
+  const [packageTypes, setPackageTypes] = useState<Record<string, string>>({});
+
+  // Translations
+  const { translatedText: welcomeText } = useAutoTranslate('Welcome Back!');
+  const { translatedText: dashboardTitle } = useAutoTranslate('My Dashboard');
+  const { translatedText: trackAppsText } = useAutoTranslate('Track your LLC formation applications');
+  const { translatedText: loadingAppsText } = useAutoTranslate('Loading applications...');
+  const { translatedText: noAppsText } = useAutoTranslate('No Applications Yet');
+  const { translatedText: noAppsDesc } = useAutoTranslate('You haven\'t submitted any LLC formation applications yet. Start your business journey today!');
+  const { translatedText: startFirstAppBtn } = useAutoTranslate('Start Your First Application');
+  const { translatedText: awaitingReviewText } = useAutoTranslate('Awaiting Review');
+  const { translatedText: awaitingReviewDesc } = useAutoTranslate('Your application is pending review. Please ensure payment is completed to proceed.');
+  const { translatedText: submittedOnText } = useAutoTranslate('Submitted on');
+  const { translatedText: messagesFromAdminText } = useAutoTranslate('Messages from Admin');
+  const { translatedText: contactAdminText } = useAutoTranslate('Contact Admin');
+  const { translatedText: signOutText } = useAutoTranslate('Sign Out');
+  const { translatedText: completedText } = useAutoTranslate('Completed');
+  const { translatedText: inProgressText } = useAutoTranslate('In Progress');
+  const { translatedText: pendingText } = useAutoTranslate('Pending');
+  const { translatedText: attentionText } = useAutoTranslate('Attention');
+  const { translatedText: completePaymentText } = useAutoTranslate('Complete Payment');
+  const { translatedText: editText } = useAutoTranslate('Edit');
+  const { translatedText: deleteText } = useAutoTranslate('Delete');
+  const { translatedText: totalApplicationsText } = useAutoTranslate('Total Applications');
+  const { translatedText: completedStatsText } = useAutoTranslate('Completed');
+  const { translatedText: inProgressStatsText } = useAutoTranslate('In Progress');
+  const { translatedText: packageTypeLabel } = useAutoTranslate('Package Type');
+  const { translatedText: orderStatusLabel } = useAutoTranslate('Order Status');
+  const { translatedText: paymentLabel } = useAutoTranslate('Payment');
+  const { translatedText: applicationCompletedText } = useAutoTranslate('Application Completed');
+  const { translatedText: processingApplicationText } = useAutoTranslate('Processing Application');
+  const { translatedText: requiresAttentionText } = useAutoTranslate('Requires Attention');
+  const { translatedText: successMsg } = useAutoTranslate('Your LLC has been successfully formed! Congratulations on your new business!');
+  const { translatedText: processingMsg } = useAutoTranslate('Your application is being processed. We will notify you of any updates soon.');
+  const { translatedText: attentionMsg } = useAutoTranslate('Your application needs attention. Please contact our support team for assistance.');
 
   useEffect(() => {
     const observers: IntersectionObserver[] = [];
@@ -54,25 +98,125 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
     return () => {
       observers.forEach(obs => obs.disconnect());
     };
-  }, []);
+  }, [applications]); // Re-run when applications change
 
   useEffect(() => {
     if (!authLoading && user) {
-      loadApplications();
+      console.log('User authenticated:', { uid: user.uid, email: user.email });
+      // Run migration to add user_id to existing documents, then load
+      (async () => {
+        await migrateUserIds(user.uid);
+        await loadApplications();
+      })();
     } else if (!authLoading && !user) {
+      console.log('User not authenticated, redirecting to auth');
       onNavigate('auth');
     }
   }, [user, authLoading, onNavigate]);
 
+  // Separate effect to fetch package types when applications change
+  useEffect(() => {
+    if (applications.length === 0) {
+      setPackageTypes({});
+      return;
+    }
+
+    const fetchPackageTypes = async () => {
+      console.log('🔄 Fetching package types for', applications.length, 'applications');
+      const types: Record<string, string> = {};
+
+      // Fetch all packages in parallel
+      const promises = applications
+        .filter(app => app.package_id)
+        .map(async (app) => {
+          try {
+            console.log(`📦 Fetching package: ${app.package_id}`);
+            const packageDoc = await getDocument<any>('packages', app.package_id);
+            
+            if (packageDoc && packageDoc.name) {
+              const tierType = packageDoc.name.split(' ').pop() || 'Basic';
+              types[app.package_id] = tierType;
+              console.log(`✓ Package ${app.package_id}: ${packageDoc.name} -> ${tierType}`);
+            } else {
+              console.warn(`⚠ Package doc missing name: ${app.package_id}`);
+              types[app.package_id] = 'Basic';
+            }
+          } catch (err: any) {
+            console.warn(`⚠ Failed to fetch package ${app.package_id}:`, err.message);
+            types[app.package_id] = 'Basic';
+          }
+        });
+
+      await Promise.all(promises);
+      console.log('✓ All package types fetched:', types);
+      setPackageTypes(types);
+    };
+
+    fetchPackageTypes();
+  }, [applications]);
+
   const loadApplications = async () => {
     setLoading(true);
     try {
-      const apps = await queryCollection<LLCApplication>('llc_applications', [
-        where('user_id', '==', user!.uid),
-      ]);
+      if (!user) {
+        console.warn('User not available when trying to load applications');
+        setApplications([]);
+        return;
+      }
+
+      console.log('=== DASHBOARD LOAD DEBUG ===');
+      console.log('Current user UID:', user.uid);
+      console.log('Current user email:', user.email);
+      
+      // Try to get applications - first attempt with user_id filter
+      let apps: LLCApplication[] = [];
+      
+      try {
+        console.log('Attempting filtered query: user_id == ', user.uid);
+        const filteredApps = await queryCollection<LLCApplication>('llc_applications', [
+          where('user_id', '==', user.uid),
+        ]);
+        console.log('✓ Filtered query returned:', filteredApps.length, 'documents');
+        if (filteredApps.length > 0) {
+          console.log('First result:', JSON.stringify(filteredApps[0], null, 2));
+        }
+        apps = filteredApps;
+      } catch (filterError: any) {
+        console.warn('⚠ Filtered query failed:', filterError.message);
+        
+        // Fallback: Get all documents to diagnose
+        try {
+          console.log('Attempting fallback: fetching ALL documents...');
+          const allApps = await queryCollection<any>('llc_applications', []);
+          console.log(`✓ Total documents in collection: ${allApps.length}`);
+          
+          if (allApps.length > 0) {
+            console.log('Sample document structure:', JSON.stringify(allApps[0], null, 2));
+            console.log('Sample document keys:', Object.keys(allApps[0]));
+            
+            // Log all user_ids to see what's there
+            const allUserIds = allApps.map(d => ({ id: d.id, user_id: d.user_id, company: d.company_name }));
+            console.log('All documents user_ids:', allUserIds);
+            
+            // Filter by user_id if field exists, otherwise show all
+            const filtered = allApps.filter((doc: any) => 
+              doc.user_id === user.uid || !doc.user_id
+            );
+            console.log(`✓ After client-side filtering: ${filtered.length} documents match`);
+            apps = filtered as LLCApplication[];
+          } else {
+            console.warn('Collection appears to be empty');
+          }
+        } catch (allError: any) {
+          console.error('✗ Failed to fetch all applications:', allError.message);
+        }
+      }
+      
+      console.log(`✓ Final: Setting ${apps.length} applications to display`);
       setApplications(apps);
-    } catch (error) {
-      console.error('Error loading applications:', error);
+      // Package types will be fetched by the separate useEffect
+    } catch (error: any) {
+      console.error('✗ Fatal error in loadApplications:', error);
       setApplications([]);
     } finally {
       setLoading(false);
@@ -82,6 +226,46 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
   const handleSignOut = async () => {
     await signOut();
     onNavigate('home');
+  };
+
+  const handleDeleteApplication = async (appId: string, companyName: string) => {
+    const confirmed = await showConfirm(
+      `Are you sure you want to delete the application for "${companyName}"? This action cannot be undone.`,
+      'Delete Application'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      console.log('Deleting application:', appId);
+      const success = await deleteDocument('llc_applications', appId);
+      
+      if (success) {
+        console.log('Application deleted successfully');
+        // Log the activity
+        if (user) {
+          await logActivity(appId, companyName, user.uid, user.email || 'unknown', 'deleted');
+        }
+        toast.success('Application deleted successfully');
+        // Reload applications
+        await loadApplications();
+      } else {
+        toast.error('Failed to delete application. Please try again.');
+      }
+    } catch (error: any) {
+      console.error('Error deleting application:', error);
+      toast.error('Error deleting application: ' + error.message);
+    }
+  };
+
+  const handleEditApplication = (app: LLCApplication) => {
+    setEditingApplication(app);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditingApplication(null);
   };
 
   const getStatusIcon = (status: string) => {
@@ -165,13 +349,13 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
             <div>
               <div className="inline-flex items-center space-x-2 px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white text-sm font-semibold border border-white/30 mb-6">
                 <Sparkles className="h-4 w-4" />
-                <span>Welcome Back!</span>
+                <span>{welcomeText}</span>
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4">
-                My Dashboard
+                {dashboardTitle}
               </h1>
               <p className="text-xl md:text-2xl text-blue-50">
-                Track your LLC formation applications
+                {trackAppsText}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -180,14 +364,14 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
                 className="group px-6 py-3 bg-white/10 backdrop-blur-md text-white border-2 border-white/30 rounded-xl hover:bg-white/20 transition-all font-semibold flex items-center justify-center gap-2"
               >
                 <User className="h-5 w-5" />
-                <span>Contact Admin</span>
+                <span>{contactAdminText}</span>
               </button>
               <button
                 onClick={handleSignOut}
                 className="group px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
               >
                 <LogOut className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
-                <span>Sign Out</span>
+                <span>{signOutText}</span>
               </button>
             </div>
           </div>
@@ -208,27 +392,32 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
               <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 dark:border-blue-900"></div>
               <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 dark:border-blue-400 absolute top-0 left-0"></div>
             </div>
-            <p className="mt-6 text-lg text-gray-600 dark:text-gray-400 font-medium">Loading applications...</p>
+            <p className="mt-6 text-lg text-gray-600 dark:text-gray-400 font-medium">{loadingAppsText}</p>
           </div>
         ) : applications.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-12 text-center border border-gray-100 dark:border-gray-700" id="empty-state" data-scroll>
-            <div className={`transition-all duration-1000 ${visibleSections.has('empty-state') ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-full mb-6">
-                <FileText className="h-10 w-10 text-blue-600 dark:text-blue-400" />
+          <div className="space-y-6">
+          
+
+            {/* Empty State */}
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-12 text-center border border-gray-100 dark:border-gray-700" id="empty-state" data-scroll>
+              <div className={`transition-all duration-1000 ${visibleSections.has('empty-state') ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+                <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-full mb-6">
+                  <FileText className="h-10 w-10 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
+                  {noAppsText}
+                </h2>
+                <p className="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
+                  {noAppsDesc}
+                </p>
+                <button
+                  onClick={() => onNavigate('get-started')}
+                  className="group px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all font-bold shadow-lg hover:shadow-xl hover:scale-105 inline-flex items-center space-x-2"
+                >
+                  <span>{startFirstAppBtn}</span>
+                  <Sparkles className="h-5 w-5 group-hover:rotate-12 transition-transform" />
+                </button>
               </div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-                No Applications Yet
-              </h2>
-              <p className="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
-                You haven't submitted any LLC formation applications yet. Start your business journey today!
-              </p>
-              <button
-                onClick={() => onNavigate('get-started')}
-                className="group px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all font-bold shadow-lg hover:shadow-xl hover:scale-105 inline-flex items-center space-x-2"
-              >
-                <span>Start Your First Application</span>
-                <Sparkles className="h-5 w-5 group-hover:rotate-12 transition-transform" />
-              </button>
             </div>
           </div>
         ) : (
@@ -261,53 +450,59 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                         <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/10 dark:to-cyan-900/10 p-4 rounded-xl border border-blue-200 dark:border-blue-800">
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1 font-semibold">State</p>
-                          <p className="font-bold text-lg text-gray-900 dark:text-white">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 mb-1 font-semibold">State</p>
+                          <p className="font-bold text-lg text-gray-950 dark:text-white">
                             {US_STATES.find((s) => s.code === app.state)?.name}
                           </p>
                         </div>
+                        <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/10 dark:to-orange-900/10 p-4 rounded-xl border border-amber-200 dark:border-amber-800">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 mb-1 font-semibold">{packageTypeLabel}</p>
+                          <p className="font-bold text-lg text-gray-950 dark:text-white">
+                            {packageTypes[app.package_id] || 'Loading...'}
+                          </p>
+                        </div>
                         <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/10 dark:to-pink-900/10 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1 font-semibold">Order Status</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 mb-1 font-semibold">{orderStatusLabel}</p>
                           <div className="flex items-center space-x-2">
                             {getStatusIcon(app.status)}
-                            <span className="font-bold text-lg text-gray-900 dark:text-white">
-                              {app.status === 'completed' && 'Completed'}
-                              {app.status === 'processing' && 'In Progress'}
-                              {app.status === 'pending' && 'Pending'}
-                              {app.status === 'rejected' && 'Attention'}
+                            <span className="font-bold text-lg text-gray-950 dark:text-white">
+                              {app.status === 'completed' && completedText}
+                              {app.status === 'processing' && inProgressText}
+                              {app.status === 'pending' && pendingText}
+                              {app.status === 'rejected' && attentionText}
                             </span>
                           </div>
                         </div>
                         <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 p-4 rounded-xl border border-green-200 dark:border-green-800">
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1 font-semibold">Payment</p>
-                          <p className={`text-lg ${getPaymentStatusColor(app.payment_status)}`}>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 mb-1 font-semibold">{paymentLabel}</p>
+                          <p className={`text-lg font-bold ${getPaymentStatusColor(app.payment_status)}`}>
                             {app.payment_status.charAt(0).toUpperCase() + app.payment_status.slice(1)}
                           </p>
                         </div>
                       </div>
-
+                        
                       <div className={`p-6 rounded-2xl ${getStatusColor(app.status)}`}>
                         <div className="flex items-start space-x-4">
                           <div className="flex-shrink-0">
                             {getStatusIcon(app.status)}
                           </div>
-                          <div>
+                          <div className="flex-1">
                             <p className="font-bold text-lg mb-1">
-                              {app.status === 'completed' && '✅ Application Completed'}
-                              {app.status === 'processing' && '⏳ Processing Application'}
-                              {app.status === 'pending' && '⏱️ Awaiting Review'}
-                              {app.status === 'rejected' && '❌ Requires Attention'}
+                              {app.status === 'completed' && '✅ ' + applicationCompletedText}
+                              {app.status === 'processing' && '⏳ ' + processingApplicationText}
+                              {app.status === 'pending' && awaitingReviewText}
+                              {app.status === 'rejected' && '❌ ' + requiresAttentionText}
                             </p>
                             <p className="text-sm opacity-90">
-                              {app.status === 'completed' && 'Your LLC has been successfully formed! Congratulations on your new business!'}
-                              {app.status === 'processing' && 'Your application is being processed. We will notify you of any updates soon.'}
-                              {app.status === 'pending' && 'Your application is pending review. Please ensure payment is completed to proceed.'}
-                              {app.status === 'rejected' && 'Your application needs attention. Please contact our support team for assistance.'}
+                              {app.status === 'completed' && successMsg}
+                              {app.status === 'processing' && processingMsg}
+                              {app.status === 'pending' && awaitingReviewDesc}
+                              {app.status === 'rejected' && attentionMsg}
                             </p>
                             <p className="text-xs mt-2 opacity-75">
-                              Submitted on {new Date(app.created_at).toLocaleDateString('en-US', {
+                              {submittedOnText} {new Date(app.created_at).toLocaleDateString('en-US', {
                                 year: 'numeric',
                                 month: 'long',
                                 day: 'numeric',
@@ -319,12 +514,61 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
                     </div>
 
                     {app.payment_status === 'pending' && (
-                      <div className="lg:w-64">
+                      <div className="lg:w-64 flex flex-col gap-3">
                         <button className="w-full px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-bold shadow-lg hover:shadow-xl hover:scale-105">
-                          Complete Payment
+                          {completePaymentText}
+                        </button>
+                        <button
+                          onClick={() => handleEditApplication(app)}
+                          className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all font-semibold shadow-md hover:shadow-lg inline-flex items-center justify-center space-x-2"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                          <span>{editText}</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteApplication(app.id, app.company_name)}
+                          className="w-full px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl hover:from-red-700 hover:to-pink-700 transition-all font-semibold shadow-md hover:shadow-lg inline-flex items-center justify-center space-x-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span>{deleteText}</span>
                         </button>
                       </div>
                     )}
+
+                    {/* Action buttons for non-pending applications */}
+                    {app.payment_status !== 'pending' && (
+                      <div className="lg:w-64 flex flex-col gap-3">
+                        <button
+                          onClick={() => handleEditApplication(app)}
+                          className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all font-semibold shadow-md hover:shadow-lg inline-flex items-center justify-center space-x-2"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                          <span>{editText}</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteApplication(app.id, app.company_name)}
+                          className="w-full px-6 py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl hover:from-red-700 hover:to-pink-700 transition-all font-semibold shadow-md hover:shadow-lg inline-flex items-center justify-center space-x-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span>{deleteText}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Messages Section */}
+                  <div className="mt-8 pt-8 border-t border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2 mb-6">
+                      <MessageSquare className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                      <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+                        {messagesFromAdminText}
+                      </h4>
+                    </div>
+                    <MessagesDisplay 
+                      applicationId={app.id}
+                      userId={user?.uid}
+                      isAdmin={false}
+                    />
                   </div>
                 </div>
               ))}
@@ -335,7 +579,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
               {[
                 {
                   icon: FileText,
-                  title: 'Total Applications',
+                  title: totalApplicationsText,
                   value: applications.length,
                   color: 'from-blue-500 to-cyan-500',
                   bgColor: 'from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20',
@@ -343,7 +587,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
                 },
                 {
                   icon: CheckCircle,
-                  title: 'Completed',
+                  title: completedStatsText,
                   value: applications.filter((app) => app.status === 'completed').length,
                   color: 'from-green-500 to-emerald-500',
                   bgColor: 'from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
@@ -351,7 +595,7 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
                 },
                 {
                   icon: Clock,
-                  title: 'In Progress',
+                  title: inProgressStatsText,
                   value: applications.filter((app) => ['pending', 'processing'].includes(app.status)).length,
                   color: 'from-yellow-500 to-orange-500',
                   bgColor: 'from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20',
@@ -426,6 +670,16 @@ export default function DashboardPage({ onNavigate }: DashboardPageProps) {
           animation: spin-slow 3s linear infinite;
         }
       `}</style>
+
+      {/* Edit Modal */}
+      {editingApplication && (
+        <EditApplicationModal
+          application={editingApplication}
+          isOpen={!!editingApplication}
+          onClose={handleCloseEditModal}
+          onSave={loadApplications}
+        />
+      )}
     </div>
   );
 }

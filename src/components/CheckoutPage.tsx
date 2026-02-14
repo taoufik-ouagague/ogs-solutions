@@ -38,7 +38,7 @@ export default function CheckoutPage({
   cartItems,
   subtotal,
 }: CheckoutPageProps) {
-  const [selectedPayment, setSelectedPayment] = useState<'bank' | 'crypto' | 'cashplus' | 'interac' | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<'bank' | 'crypto' | 'cashplus' | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -255,6 +255,7 @@ export default function CheckoutPage({
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
+                    autoComplete="email"
                     placeholder="john@example.com"
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -368,29 +369,6 @@ export default function CheckoutPage({
                   </div>
                 </div>
 
-                {/* Interac */}
-                <div
-                  onClick={() => setSelectedPayment('interac')}
-                  className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                    selectedPayment === 'interac'
-                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-900 dark:text-white">Interac</span>
-                    <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        selectedPayment === 'interac'
-                          ? 'border-orange-500 bg-orange-500'
-                          : 'border-gray-300 dark:border-gray-600'
-                      }`}
-                    >
-                      {selectedPayment === 'interac' && <Check className="h-4 w-4 text-white" />}
-                    </div>
-                  </div>
-                </div>
-
                 {/* Crypto */}
                 <div
                   onClick={() => setSelectedPayment('crypto')}
@@ -477,30 +455,6 @@ export default function CheckoutPage({
                           </button>
                         </div>
                       </div>
-                    </div>
-                  )}
-
-                  {selectedPayment === 'interac' && (
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600 dark:text-gray-400">Email:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-gray-900 dark:text-white">{PAYMENT_DETAILS.interac.email}</span>
-                          <button
-                            onClick={() => handleCopy(PAYMENT_DETAILS.interac.email, 'interac-email')}
-                            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-                          >
-                            {copiedField === 'interac-email' ? (
-                              <Check className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <Copy className="h-4 w-4 text-gray-400" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-                        ✓ Auto-Deposit enabled - Funds will deposit automatically
-                      </p>
                     </div>
                   )}
 

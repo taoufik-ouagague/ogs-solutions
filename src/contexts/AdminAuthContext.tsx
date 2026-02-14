@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { signInWithEmailAndPassword, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface AdminAuthContextType {
   isAdmin: boolean;
@@ -15,6 +16,18 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Helper function to set admin flag in Firestore
+  const setAdminFlag = async (uid: string, isAdminUser: boolean) => {
+    try {
+      await setDoc(doc(db, 'users', uid), {
+        is_admin: isAdminUser,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+    } catch (error) {
+      console.error('Error setting admin flag:', error);
+    }
+  };
+
   useEffect(() => {
     let timeout: NodeJS.Timeout;
 
@@ -23,9 +36,11 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       console.log('AdminAuthContext: Auth state changed', user ? `User: ${user.email}` : 'No user');
       
-      if (user?.email === import.meta.env.VITE_ADMIN_EMAIL) {
+      if (user && user.email === import.meta.env.VITE_ADMIN_EMAIL) {
         console.log('AdminAuthContext: Admin user verified');
         setIsAdmin(true);
+        // Set the is_admin flag in Firestore
+        setAdminFlag(user.uid, true);
       } else {
         console.log('AdminAuthContext: Not admin user');
         setIsAdmin(false);
@@ -58,7 +73,9 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         return { error: 'Unauthorized access' };
       }
 
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCred = await signInWithEmailAndPassword(auth, email, password);
+      // Set the is_admin flag in Firestore
+      await setAdminFlag(userCred.user.uid, true);
       setIsAdmin(true);
       return { error: null };
     } catch (error) {

@@ -1,67 +1,69 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, HelpCircle, MessageCircle } from 'lucide-react';
+import { useAutoTranslate } from '../contexts/TranslationContext';
 
 interface FAQItem {
   question: string;
   answer: string;
 }
 
-const faqs: FAQItem[] = [
-  {
-    question: 'What is an LLC?',
-    answer:
-      'A Limited Liability Company (LLC) is a business structure that combines the flexibility of a partnership with the liability protection of a corporation. It protects your personal assets from business debts and lawsuits.',
-  },
-  {
-    question: 'How long does it take to form an LLC?',
-    answer:
-      'Processing times vary by package: New Mexico (5-7 business days), Wyoming (3-5 business days), and Colorado (1-2 business days). These times are in addition to state processing times, which vary by location.',
-  },
-  {
-    question: 'Which state should I form my LLC in?',
-    answer:
-      'Most businesses should form their LLC in the state where they primarily operate. However, Delaware, Wyoming, and Nevada are popular choices for their business-friendly laws. Our AI assistant can help you choose the right state for your needs.',
-  },
-  {
-    question: 'Do I need an EIN for my LLC?',
-    answer:
-      'An EIN (Employer Identification Number) is required if you have employees, multiple members, or want to open a business bank account. Our Wyoming and Colorado packages include EIN registration.',
-  },
-  {
-    question: 'What is a registered agent?',
-    answer:
-      'A registered agent is a person or company designated to receive legal documents on behalf of your LLC. Every LLC must have a registered agent in the state where it\'s formed. Our Wyoming and Colorado packages include 1 year of registered agent service.',
-  },
-  {
-    question: 'What are the ongoing requirements for an LLC?',
-    answer:
-      'LLCs typically need to file annual reports, pay annual fees, and maintain good standing with the state. Requirements vary by state. Our Colorado package includes compliance alerts to help you stay on track.',
-  },
-  {
-    question: 'Can I form an LLC if I\'m not a U.S. citizen?',
-    answer:
-      'Yes! Non-U.S. citizens and residents can form an LLC in any state. You don\'t need to be a U.S. citizen or have a Social Security Number to start an LLC.',
-  },
-  {
-    question: 'What\'s included in your packages?',
-    answer:
-      'New Mexico includes essential LLC registration and documents. Wyoming adds EIN registration and registered agent service. Colorado includes everything plus bank account setup assistance and priority support. All packages include expert support and filing services.',
-  },
-  {
-    question: 'Is there a money-back guarantee?',
-    answer:
-      'Yes! We offer a 100% satisfaction guarantee. If you\'re not completely satisfied with our service, contact us within 60 days for a full refund (excluding state filing fees).',
-  },
-  {
-    question: 'How do I contact support?',
-    answer:
-      'Our support team is available 24/7 via email (support@ogssolution.com), phone (+212 69 11 81 00 2), or WhatsApp. You can also chat with our AI assistant anytime for instant answers.',
-  },
-];
-
 export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set());
+
+  // Translation hooks
+  const { translatedText: faqTitle } = useAutoTranslate('Frequently Asked Questions');
+  const { translatedText: faqSubtitle } = useAutoTranslate('Everything you need to know about forming your LLC');
+  const { translatedText: faqLabel } = useAutoTranslate('FAQ');
+  
+  // FAQ translations
+  const { translatedText: q1 } = useAutoTranslate('What is an LLC?');
+  const { translatedText: a1 } = useAutoTranslate('A Limited Liability Company (LLC) is a business structure that combines the flexibility of a partnership with the liability protection of a corporation. It protects your personal assets from business debts and lawsuits.');
+  
+  const { translatedText: q2 } = useAutoTranslate('How long does it take to form an LLC?');
+  const { translatedText: a2 } = useAutoTranslate('Processing times vary by package: New Mexico (5-7 business days), Wyoming (3-5 business days), and Colorado (1-2 business days). These times are in addition to state processing times, which vary by location.');
+  
+  const { translatedText: q3 } = useAutoTranslate('Which state should I form my LLC in?');
+  const { translatedText: a3 } = useAutoTranslate('Most businesses should form their LLC in the state where they primarily operate. However, Delaware, Wyoming, and Nevada are popular choices for their business-friendly laws. Our AI assistant can help you choose the right state for your needs.');
+  
+  const { translatedText: q4 } = useAutoTranslate('Do I need an EIN for my LLC?');
+  const { translatedText: a4 } = useAutoTranslate('An EIN (Employer Identification Number) is required if you have employees, multiple members, or want to open a business bank account. Our Wyoming and Colorado packages include EIN registration.');
+  
+  const { translatedText: q5 } = useAutoTranslate('What is a registered agent?');
+  const { translatedText: a5 } = useAutoTranslate('A registered agent is a person or company designated to receive legal documents on behalf of your LLC. Every LLC must have a registered agent in the state where it\'s formed. Our Wyoming and Colorado packages include 1 year of registered agent service.');
+  
+  const { translatedText: q6 } = useAutoTranslate('What are the ongoing requirements for an LLC?');
+  const { translatedText: a6 } = useAutoTranslate('LLCs typically need to file annual reports, pay annual fees, and maintain good standing with the state. Requirements vary by state. Our Colorado package includes compliance alerts to help you stay on track.');
+  
+  const { translatedText: q7 } = useAutoTranslate('Can I form an LLC if I\'m not a U.S. citizen?');
+  const { translatedText: a7 } = useAutoTranslate('Yes! Non-U.S. citizens and residents can form an LLC in any state. You don\'t need to be a U.S. citizen or have a Social Security Number to start an LLC.');
+  
+  const { translatedText: q8 } = useAutoTranslate('What\'s included in your packages?');
+  const { translatedText: a8 } = useAutoTranslate('New Mexico includes essential LLC registration and documents. Wyoming adds EIN registration and registered agent service. Colorado includes everything plus bank account setup assistance and priority support. All packages include expert support and filing services.');
+  
+  const { translatedText: q9 } = useAutoTranslate('Is there a money-back guarantee?');
+  const { translatedText: a9 } = useAutoTranslate('Yes! We offer a 100% satisfaction guarantee. If you\'re not completely satisfied with our service, contact us within 60 days for a full refund (excluding state filing fees).');
+  
+  const { translatedText: q10 } = useAutoTranslate('How do I contact support?');
+  const { translatedText: a10 } = useAutoTranslate('Our support team is available 24/7 via email (support@ogssolution.com), phone (+212 69 11 81 00 2), or WhatsApp. You can also chat with our AI assistant anytime for instant answers.');
+
+  // Build translated FAQs
+  const faqs: FAQItem[] = [
+    { question: q1, answer: a1 },
+    { question: q2, answer: a2 },
+    { question: q3, answer: a3 },
+    { question: q4, answer: a4 },
+    { question: q5, answer: a5 },
+    { question: q6, answer: a6 },
+    { question: q7, answer: a7 },
+    { question: q8, answer: a8 },
+    { question: q9, answer: a9 },
+    { question: q10, answer: a10 },
+  ];
+
+  // CTA translations
+  const { translatedText: stillHaveQuestionsTitle } = useAutoTranslate('Still have questions?');
+  const { translatedText: stillHaveQuestionsDesc } = useAutoTranslate('Our AI assistant and support team are here to help 24/7.');
 
   useEffect(() => {
     const observers: IntersectionObserver[] = [];
@@ -107,14 +109,14 @@ export default function FAQSection() {
         }`}>
           <div className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 rounded-full text-blue-600 dark:text-blue-400 text-sm font-semibold mb-6">
             <HelpCircle className="h-4 w-4" />
-            <span>FAQ</span>
+            <span>{faqLabel}</span>
           </div>
           
           <h2 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-            Frequently Asked Questions
+            {faqTitle}
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-300">
-            Everything you need to know about forming your LLC
+            {faqSubtitle}
           </p>
         </div>
 
@@ -183,10 +185,10 @@ export default function FAQSection() {
             </div>
             
             <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Still have questions?
+              {stillHaveQuestionsTitle}
             </h3>
             <p className="text-lg text-gray-700 dark:text-gray-300">
-              Our AI assistant and support team are here to help 24/7.
+              {stillHaveQuestionsDesc}
             </p>
           </div>
         </div>

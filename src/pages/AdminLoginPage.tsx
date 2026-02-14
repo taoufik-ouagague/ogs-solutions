@@ -62,6 +62,7 @@ export default function AdminLoginPage({ onNavigate }: AdminLoginPageProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoComplete="email"
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
                   placeholder="admin@ogssolution.com"
                 />
@@ -79,6 +80,7 @@ export default function AdminLoginPage({ onNavigate }: AdminLoginPageProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  autoComplete="current-password"
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors"
                   placeholder="••••••••"
                 />
@@ -94,13 +96,7 @@ export default function AdminLoginPage({ onNavigate }: AdminLoginPageProps) {
             </button>
           </form>
 
-          <div className="mt-6 space-y-3 text-center">
-            <button
-              onClick={() => onNavigate('admin-setup')}
-              className="block w-full text-blue-600 dark:text-blue-400 hover:underline font-medium"
-            >
-              Create Admin Account
-            </button>
+          <div className="mt-6 text-center">
             <button
               onClick={() => onNavigate('home')}
               className="block w-full text-gray-600 dark:text-gray-400 hover:underline font-medium"

@@ -1,12 +1,41 @@
 import { useState, useEffect } from 'react';
 import { Mail, Phone, Send, MessageCircle, Clock, Sparkles } from 'lucide-react';
+import { useAutoTranslate } from '../contexts/TranslationContext';
 import { CONTACT_INFO } from '../utils/constants';
-import { supabase } from '../lib/supabase';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase-types';
+import { toast } from '../utils/toast';
 
 export default function ContactPage() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set());
+  
+  // Translation hooks
+  const { translatedText: hereToHelp } = useAutoTranslate('We\'re Here to Help');
+  const { translatedText: contactUs } = useAutoTranslate('Contact Us');
+  const { translatedText: haveQuestions } = useAutoTranslate('Have questions or need help? Our team is here for you.');
+  const { translatedText: email } = useAutoTranslate('Email');
+  const { translatedText: phone } = useAutoTranslate('Phone');
+  const { translatedText: availability } = useAutoTranslate('Availability');
+  const { translatedText: support24 } = useAutoTranslate('24/7 Support Available');
+  const { translatedText: sendMessage } = useAutoTranslate('Send Us a Message');
+  const { translatedText: messageSent } = useAutoTranslate('Message Sent Successfully!');
+  const { translatedText: thankYou } = useAutoTranslate('Thank you for contacting us! We\'ll get back to you shortly.');
+  const { translatedText: yourName } = useAutoTranslate('Your Name');
+  const { translatedText: yourEmail } = useAutoTranslate('Your Email');
+  const { translatedText: subject } = useAutoTranslate('Subject');
+  const { translatedText: message } = useAutoTranslate('Message');
+  const { translatedText: sendBtn } = useAutoTranslate('Send Message');
+  const { translatedText: sendingBtn } = useAutoTranslate('Sending...');
+  const { translatedText: preferChat } = useAutoTranslate('Prefer to Chat?');
+  const { translatedText: namePlaceholder } = useAutoTranslate('John Doe');
+  const { translatedText: emailPlaceholder } = useAutoTranslate('john@example.com');
+  const { translatedText: subjectPlaceholder } = useAutoTranslate('How can we help you?');
+  const { translatedText: messagePlaceholder } = useAutoTranslate('Tell us more about your inquiry...');
+  const { translatedText: ourTeam } = useAutoTranslate('Our AI assistant is available 24/7 to answer your questions and guide you through the LLC formation process.');
+  const { translatedText: whatsApp } = useAutoTranslate('You can also reach us on WhatsApp using the button in the bottom-right corner.');
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -52,23 +81,22 @@ export default function ContactPage() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.from('contact_messages').insert({
+      await addDoc(collection(db, 'contact_messages'), {
         name: formData.name,
         email: formData.email,
         subject: formData.subject,
         message: formData.message,
         status: 'new',
+        created_at: new Date().toISOString(),
       });
-
-      if (error) throw error;
-
       setSubmitted(true);
       setFormData({ name: '', email: '', subject: '', message: '' });
+      toast.success('Message sent successfully! We will get back to you shortly.');
 
       setTimeout(() => setSubmitted(false), 5000);
     } catch (error) {
       console.error('Error submitting contact form:', error);
-      alert('Error submitting form. Please try again.');
+      toast.error('Error submitting form. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -77,7 +105,7 @@ export default function ContactPage() {
   const contactMethods = [
     {
       icon: Mail,
-      title: 'Email',
+      title: email,
       value: CONTACT_INFO.email,
       link: `mailto:${CONTACT_INFO.email}`,
       color: 'from-blue-500 to-cyan-500',
@@ -85,7 +113,7 @@ export default function ContactPage() {
     },
     {
       icon: Phone,
-      title: 'Phone',
+      title: phone,
       value: CONTACT_INFO.phone,
       link: `tel:${CONTACT_INFO.phone}`,
       color: 'from-green-500 to-emerald-500',
@@ -93,8 +121,8 @@ export default function ContactPage() {
     },
     {
       icon: Clock,
-      title: 'Availability',
-      value: '24/7 Support Available',
+      title: availability,
+      value: support24,
       link: null,
       color: 'from-purple-500 to-pink-500',
       bgColor: 'bg-purple-50 dark:bg-purple-900/20'
@@ -118,15 +146,15 @@ export default function ContactPage() {
           <div className="text-center max-w-3xl mx-auto">
             <div className="inline-flex items-center space-x-2 px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white text-sm font-semibold border border-white/30 mb-8 animate-fade-in-up">
               <MessageCircle className="h-4 w-4" />
-              <span>We're Here to Help</span>
+              <span>{hereToHelp}</span>
             </div>
 
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-              Contact Us
+              {contactUs}
             </h1>
             
             <p className="text-xl md:text-2xl text-blue-50 mb-8 leading-relaxed animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-              Have questions or need help? Our team is here for you.
+              {haveQuestions}
             </p>
           </div>
         </div>
@@ -199,7 +227,7 @@ export default function ContactPage() {
                   <Send className="h-6 w-6 text-white" />
                 </div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  Send Us a Message
+                  {sendMessage}
                 </h2>
               </div>
 
@@ -209,10 +237,10 @@ export default function ContactPage() {
                     <Sparkles className="h-6 w-6 text-green-600 dark:text-green-400 mt-0.5" />
                     <div>
                       <p className="text-green-800 dark:text-green-200 font-semibold text-lg">
-                        Message Sent Successfully!
+                        {messageSent}
                       </p>
                       <p className="text-green-700 dark:text-green-300 mt-1">
-                        Thank you for contacting us! We'll get back to you shortly.
+                        {thankYou}
                       </p>
                     </div>
                   </div>
@@ -223,7 +251,7 @@ export default function ContactPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="group">
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Your Name *
+                      {yourName} *
                     </label>
                     <input
                       type="text"
@@ -231,28 +259,29 @@ export default function ContactPage() {
                       onChange={(e) => handleInputChange('name', e.target.value)}
                       required
                       className="w-full px-5 py-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all group-hover:border-gray-300 dark:group-hover:border-gray-500"
-                      placeholder="John Doe"
+                      placeholder={namePlaceholder}
                     />
                   </div>
 
                   <div className="group">
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Your Email *
+                      {yourEmail} *
                     </label>
                     <input
                       type="email"
                       value={formData.email}
                       onChange={(e) => handleInputChange('email', e.target.value)}
                       required
+                      autoComplete="email"
                       className="w-full px-5 py-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all group-hover:border-gray-300 dark:group-hover:border-gray-500"
-                      placeholder="john@example.com"
+                      placeholder={emailPlaceholder}
                     />
                   </div>
                 </div>
 
                 <div className="group">
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Subject *
+                    {subject} *
                   </label>
                   <input
                     type="text"
@@ -260,13 +289,13 @@ export default function ContactPage() {
                     onChange={(e) => handleInputChange('subject', e.target.value)}
                     required
                     className="w-full px-5 py-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all group-hover:border-gray-300 dark:group-hover:border-gray-500"
-                    placeholder="How can we help you?"
+                    placeholder={subjectPlaceholder}
                   />
                 </div>
 
                 <div className="group">
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Message *
+                    {message} *
                   </label>
                   <textarea
                     value={formData.message}
@@ -274,7 +303,7 @@ export default function ContactPage() {
                     required
                     rows={6}
                     className="w-full px-5 py-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all resize-none group-hover:border-gray-300 dark:group-hover:border-gray-500"
-                    placeholder="Tell us more about your inquiry..."
+                    placeholder={messagePlaceholder}
                   />
                 </div>
 
@@ -283,7 +312,7 @@ export default function ContactPage() {
                   disabled={loading}
                   className="group w-full px-8 py-5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl hover:scale-105"
                 >
-                  <span>{loading ? 'Sending...' : 'Send Message'}</span>
+                  <span>{loading ? sendingBtn : sendBtn}</span>
                   <Send className="h-6 w-6 group-hover:translate-x-1 transition-transform" />
                 </button>
               </form>
@@ -314,13 +343,13 @@ export default function ContactPage() {
             </div>
             
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              Prefer to Chat?
+              {preferChat}
             </h2>
             <p className="text-lg text-blue-50 mb-4 max-w-2xl mx-auto">
-              Our AI assistant is available 24/7 to answer your questions and guide you through the LLC formation process.
+              {ourTeam}
             </p>
             <p className="text-md text-blue-100 max-w-xl mx-auto">
-              You can also reach us on WhatsApp using the button in the bottom-right corner.
+              {whatsApp}
             </p>
           </div>
         </div>

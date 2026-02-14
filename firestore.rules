@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.is_admin == true;
+    }
+
+    // Helper function to check if email is admin
+    function isAdminEmail() {
+      return request.auth.token.email == 'admin@ogssolution.com';
+    }
+
+    // Allow anyone to read packages, authenticated users with admin email can write
+    match /packages/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && (isAdmin() || isAdminEmail());
+    }
+
+    // Allow anyone to read package state pricing, authenticated users with admin email can write
+    match /package_state/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && (isAdmin() || isAdminEmail());
+    }
+
+    // Payment methods - admins can read/write, users can read for checkout
+    match /payment_methods/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && (isAdmin() || isAdminEmail());
+    }
+
+    // Users can read/write their own LLC applications
+    match /llc_applications/{document=**} {
+      // Allow admins full access
+      allow read, write: if isAdmin();
+      
+      // Allow read if: user is owner OR document has no user_id yet (migration)
+      allow read: if request.auth != null && (
+        !resource.data.keys().hasAny(['user_id']) || 
+        resource.data.user_id == request.auth.uid
+      );
+      // Allow write if: user is owner OR document has no user_id yet (migration)
+      allow write: if request.auth != null && (
+        !resource.data.keys().hasAny(['user_id']) || 
+        resource.data.user_id == request.auth.uid
+      );
+      // Allow create for authenticated users
+      allow create: if request.auth != null;
+    }
+
+    // Users can create and read contact messages
+    match /contact_messages/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Users can read/write their own payments
+    match /payments/{document=**} {
+      // Allow admins full access
+      allow read, write: if isAdmin();
+      
+      allow read, write: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null;
+    }
+
+    // Users can write activity logs for their own actions and read all
+    match /activity_logs/{document=**} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null;
+    }
+
+    // User profiles - users can read/write their own
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Deleted applications tracking
+    match /deleted_applications/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Admin messages - admins full access, users can read all messages in their application
+    match /admin_messages/{messageId} {
+      // Allow admins full access to read/write
+      allow read, write: if isAdmin();
+      
+      // Allow authenticated users to read any message
+      allow read: if request.auth != null;
+      
+      // Allow authenticated users to create messages
+      allow create: if request.auth != null && 
+                      request.resource.data.application_id != null &&
+                      request.resource.data.user_id != null;
+      
+      // Allow updating read status on own messages
+      allow update: if request.auth != null && 
+                     (isAdmin() || resource.data.user_id == request.auth.uid);
+      
+      // Allow deletion by admin only
+      allow delete: if isAdmin();
+    }
+  }
+}

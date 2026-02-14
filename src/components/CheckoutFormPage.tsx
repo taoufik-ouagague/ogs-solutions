@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, Lock, MessageCircle, Mail, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { toast } from '../utils/toast';
 
 interface CheckoutFormData {
   fullName: string;
@@ -28,14 +29,7 @@ const COUNTRIES = [
 ];
 
 const US_STATES = [
-  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut',
-  'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
-  'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan',
-  'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire',
-  'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
-  'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota',
-  'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia',
-  'Wisconsin', 'Wyoming',
+  'Wyoming', 'Colorado', 'New Mexico', 'Delaware',
 ];
 
 type CheckboxField = 'termsAccepted' | 'disclaimerAccepted' | 'refundAccepted';
@@ -242,7 +236,7 @@ export default function CheckoutFormPage({
       setSubmitted(true);
     } catch (err) {
       console.error('Checkout error:', err);
-      alert('An error occurred. Please try again.');
+      toast.error('An error occurred. Please try again.');
     } finally {
       setProcessing(false);
     }
@@ -348,6 +342,7 @@ export default function CheckoutFormPage({
                       value={formData.email}
                       onChange={handleInputChange}
                       onBlur={handleBlur}
+                      autoComplete="email"
                       placeholder="john@example.com"
                       className={`w-full px-4 py-2.5 border-2 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none transition-all ${
                         errors.email && touched.email

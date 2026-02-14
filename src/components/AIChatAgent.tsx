@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, Bot, User as UserIcon } from 'lucide-react';
+import { X, Send, User as UserIcon, Bot } from 'lucide-react';
 import { playClickSound, playNotificationSound } from '../utils/soundEffects';
+
+const IconIA = () => (
+  <Bot className="w-6 h-6" />
+);
 
 interface Message {
   id: string;
@@ -114,7 +118,7 @@ export default function AIChatAgent({ }: AIChatAgentProps) {
           className="fixed bottom-6 left-6 z-40 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-full shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-blue-800 transition-all hover:scale-110 group animate-pulse"
           aria-label="Open chat"
         >
-          <MessageCircle className="h-6 w-6" />
+          <IconIA />
           <span className="absolute left-full ml-3 top-1/2 -translate-y-1/2 bg-gray-900 text-white text-sm px-3 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
             Chat with AI Assistant
           </span>
@@ -126,7 +130,7 @@ export default function AIChatAgent({ }: AIChatAgentProps) {
           <div className="bg-blue-600 dark:bg-blue-700 text-white p-4 flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="bg-white/20 p-2 rounded-full">
-                <Bot className="h-5 w-5" />
+                <IconIA />
               </div>
               <div>
                 <h3 className="font-semibold">AI Assistant</h3>
@@ -166,7 +170,9 @@ export default function AIChatAgent({ }: AIChatAgentProps) {
                     {message.role === 'user' ? (
                       <UserIcon className="h-4 w-4" />
                     ) : (
-                      <Bot className="h-4 w-4" />
+                      <div className="h-4 w-4 scale-75">
+                        <IconIA />
+                      </div>
                     )}
                   </div>
                   <div

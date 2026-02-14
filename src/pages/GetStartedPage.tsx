@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, Check, MapPin, Building2, User, Sparkles, Package as PackageIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { getActivePackages, createDocument } from '../lib/firebaseUtils';
+import { getActivePackages, createDocument, getPackagePriceForState, getCollectionData } from '../lib/firebaseUtils';
+import { usePackageStatePricing } from '../hooks/usePackageStatePricing';
+import { useAutoInitializeCollections } from '../hooks/useAutoInitializeCollections';
+import { useAutoTranslate } from '../contexts/TranslationContext';
 import { US_STATES } from '../utils/constants';
+import { toast } from '../utils/toast';
 import PaymentModal from '../components/PaymentModal';
 
 interface Package {
@@ -12,6 +16,9 @@ interface Package {
   description: string;
   features: string[];
   is_active: boolean;
+  state_pricing?: {
+    [state: string]: number;
+  };
 }
 
 interface GetStartedPageProps {
@@ -21,11 +28,81 @@ interface GetStartedPageProps {
 
 export default function GetStartedPage({ onNavigate, selectedPackage }: GetStartedPageProps) {
   const { user } = useAuth();
+  usePackageStatePricing(); // Hook is used to maintain dependency, though pricing is now embedded in packages
+  const { initialized: collectionsInitialized } = useAutoInitializeCollections();
+  
+  // Translation hooks
+  const { translatedText: quickEasyProcess } = useAutoTranslate('Quick & Easy Process');
+  const { translatedText: startFormation } = useAutoTranslate('Start Your LLC Formation');
+  const { translatedText: completeSteps } = useAutoTranslate('Complete the following steps to form your LLC');
+  const { translatedText: selectState } = useAutoTranslate('Select Your State');
+  const { translatedText: chooseStateDesc } = useAutoTranslate('Choose the state where you want to form your LLC');
+  const { translatedText: selectStateOption } = useAutoTranslate('Select a state...');
+  const { translatedText: choosePackage } = useAutoTranslate('Choose Your Package');
+  const { translatedText: selectPackageDesc } = useAutoTranslate('Select the service package that fits your needs');
+  const { translatedText: loadingPackages } = useAutoTranslate('Loading packages...');
+  const { translatedText: selectStateFirst } = useAutoTranslate('Select a state first to view available packages');
+  const { translatedText: showingPricesFor } = useAutoTranslate('Showing prices for');
+  const { translatedText: forState } = useAutoTranslate('for');
+  const { translatedText: perState } = useAutoTranslate('per state');
+  const { translatedText: businessInfo } = useAutoTranslate('Business Information');
+  const { translatedText: enterBusinessDetails } = useAutoTranslate('Enter your business details');
+  const { translatedText: contactInfo } = useAutoTranslate('Contact Information');
+  const { translatedText: enterContactDetails } = useAutoTranslate('Enter your contact details');
+  const { translatedText: reviewInfo } = useAutoTranslate('Review Your Information');
+  const { translatedText: reviewDesc } = useAutoTranslate('Please review your information before submitting');
+  const { translatedText: state } = useAutoTranslate('State');
+  const { translatedText: packageLabel } = useAutoTranslate('Package');
+  const { translatedText: businessStepLabel } = useAutoTranslate('Business');
+  const { translatedText: contactStepLabel } = useAutoTranslate('Contact');
+  const { translatedText: reviewStepLabel } = useAutoTranslate('Review');
+  const { translatedText: businessDetails } = useAutoTranslate('Business Details');
+  const { translatedText: features } = useAutoTranslate('Features:');
+  const { translatedText: backBtn } = useAutoTranslate('Back');
+  const { translatedText: nextStepBtn } = useAutoTranslate('Next Step');
+  const { translatedText: submitBtn } = useAutoTranslate('Submit Application');
+  const { translatedText: submittingBtn } = useAutoTranslate('Submitting...');
+  const { translatedText: companyNameLabel } = useAutoTranslate('Company Name');
+  const { translatedText: memberNameLabel } = useAutoTranslate('Member Name');
+  const { translatedText: emailLabel } = useAutoTranslate('Email');
+  const { translatedText: phoneLabel } = useAutoTranslate('Phone');
+  const { translatedText: addressLabel } = useAutoTranslate('Address');
+  const { translatedText: cityLabel } = useAutoTranslate('City');
+  const { translatedText: zipCodeLabel } = useAutoTranslate('ZIP Code');
+  const { translatedText: includedFeatures } = useAutoTranslate('Included Features:');
+  const { translatedText: summary } = useAutoTranslate('Summary');
+  const { translatedText: totalPrice } = useAutoTranslate('Total Price');
+  const { translatedText: basicTier } = useAutoTranslate('Basic');
+  const { translatedText: epicTier } = useAutoTranslate('Epic');
+  const { translatedText: ultimateTier } = useAutoTranslate('Ultimate');
+  const { translatedText: basicDesc } = useAutoTranslate('Essential LLC registration and documents');
+  const { translatedText: epicDesc } = useAutoTranslate('Everything in Basic plus EIN and registered agent');
+  const { translatedText: ultimateDesc } = useAutoTranslate('Complete business setup with maximum support');
+  const { translatedText: packageDetails } = useAutoTranslate('Package Details');
+  const { translatedText: businessType } = useAutoTranslate('Business Type');
+  const { translatedText: singleMemberLLC } = useAutoTranslate('Single-Member LLC');
+  const { translatedText: multiMemberLLC } = useAutoTranslate('Multi-Member LLC');
+  const { translatedText: contactInformationLabel } = useAutoTranslate('Contact Information');
+  const { translatedText: llcFormation } = useAutoTranslate('LLC Formation in your state');
+  const { translatedText: businessNameReservation } = useAutoTranslate('Business name reservation');
+  const { translatedText: operatingAgreement } = useAutoTranslate('Operating agreement template');
+  const { translatedText: einAssistance } = useAutoTranslate('EIN application assistance');
+  const { translatedText: registeredAgentService } = useAutoTranslate('Registered agent service');
+  const { translatedText: filingProcessing } = useAutoTranslate('Filing and processing');
+  const { translatedText: bankingAssistance } = useAutoTranslate('Banking setup assistance');
+  const { translatedText: accountingSoftware } = useAutoTranslate('Accounting software setup');
+  const { translatedText: complianceCheckIns } = useAutoTranslate('Quarterly compliance check-ins');
+  const { translatedText: taxConsultation } = useAutoTranslate('Tax planning consultation');
+  const { translatedText: dedicatedSupport } = useAutoTranslate('24/7 dedicated support line');
+  const { translatedText: annualReview } = useAutoTranslate('Annual business review meeting');
+  
   const [currentStep, setCurrentStep] = useState(1);
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [stepTransition, setStepTransition] = useState(false);
+  const [statePricing, setStatePricing] = useState<any>(null);
+  const [availableStates, setAvailableStates] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     state: '',
@@ -41,34 +118,233 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
     businessPurpose: '',
   });
 
+  // Helper function to translate tier names
+  const translateTierName = (englishTier: string): string => {
+    switch (englishTier) {
+      case 'Basic':
+        return basicTier;
+      case 'Epic':
+        return epicTier;
+      case 'Ultimate':
+        return ultimateTier;
+      default:
+        return englishTier;
+    }
+  };
+
   useEffect(() => {
     if (!user) {
       onNavigate('auth');
       return;
     }
-    loadPackages();
-  }, [user, onNavigate]);
+    // Load packages after collections are initialized
+    if (collectionsInitialized) {
+      loadPackages();
+      loadAvailableStates();
+    }
+  }, [user, onNavigate, collectionsInitialized]);
 
   const loadPackages = async () => {
-    const packages = await getActivePackages();
-    packages.sort((a, b) => a.price - b.price);
-    const validPackages = packages.filter(p => p.id !== undefined).map(p => ({
-      ...p,
-      id: p.id as string
-    }));
-    setPackages(validPackages);
+    try {
+      console.log('📦 [GetStartedPage] Loading packages...');
+      const packages = await getActivePackages();
+      console.log('✅ [GetStartedPage] Loaded packages:', packages);
+      
+      if (packages.length === 0) {
+        console.warn('⚠️ [GetStartedPage] No packages found, retrying...');
+        setTimeout(() => loadPackages(), 1000);
+        return;
+      }
+      
+      packages.sort((a, b) => a.price - b.price);
+      const validPackages = packages.filter(p => p.id !== undefined).map(p => ({
+        ...p,
+        id: p.id as string
+      }));
+      console.log('✅ [GetStartedPage] Valid packages with names:', validPackages.map(p => p.name));
+      console.log('✅ [GetStartedPage] Checking for state_pricing field:', validPackages.map(p => ({ name: p.name, hasStatePricing: !!(p as any).state_pricing })));
+      setPackages(validPackages);
+    } catch (error) {
+      console.error('❌ [GetStartedPage] Error loading packages:', error);
+      // Retry after a short delay
+      setTimeout(() => loadPackages(), 2000);
+    }
   };
 
+  const loadAvailableStates = async () => {
+    try {
+      console.log('📍 [GetStartedPage] Loading available states from State Pricing Management...');
+      // Fetch ONLY states configured in State Pricing Management (package_state collection)
+      const configuredStates = await getCollectionData<any>('package_state');
+      
+      // Map to standard format
+      const states = configuredStates.map((state: any) => ({
+        code: state.state,
+        name: state.name
+      }));
+      
+      console.log('✅ [GetStartedPage] Available states:', states.map((s: any) => `${s.code} - ${s.name}`));
+      setAvailableStates(states);
+    } catch (error) {
+      console.error('❌ [GetStartedPage] Error loading states:', error);
+      // Fallback to empty (no states available)
+      setAvailableStates([]);
+    }
+  };
+ 
+
   const steps = [
-    { id: 1, title: 'State', icon: MapPin, color: 'from-blue-500 to-cyan-500' },
-    { id: 2, title: 'Package', icon: PackageIcon, color: 'from-purple-500 to-pink-500' },
-    { id: 3, title: 'Business', icon: Building2, color: 'from-green-500 to-emerald-500' },
-    { id: 4, title: 'Contact', icon: User, color: 'from-orange-500 to-red-500' },
-    { id: 5, title: 'Review', icon: Check, color: 'from-indigo-500 to-purple-500' },
+    { id: 1, title: state, icon: MapPin, color: 'from-blue-500 to-cyan-500' },
+    { id: 2, title: packageLabel, icon: PackageIcon, color: 'from-purple-500 to-pink-500' },
+    { id: 3, title: businessStepLabel, icon: Building2, color: 'from-green-500 to-emerald-500' },
+    { id: 4, title: contactStepLabel, icon: User, color: 'from-orange-500 to-red-500' },
+    { id: 5, title: reviewStepLabel, icon: Check, color: 'from-indigo-500 to-purple-500' },
   ];
 
+  const getFilteredPackages = () => {
+    if (!formData.state) {
+      console.log('ℹ️ [getFilteredPackages] No state selected');
+      return [];
+    }
+    
+    console.log(`🔄 [getFilteredPackages] Filtering for state: ${formData.state}`);
+    
+    // First, try to find packages with exact tier names
+    const tiers = [
+      { name: 'Basic', priceKey: 'basic_price' },
+      { name: 'Epic', priceKey: 'epic_price' },
+      { name: 'Ultimate', priceKey: 'ultimate_price' }
+    ];
+    
+    // Try to find packages by exact name match
+    let adjustedPackages = tiers.map(tier => {
+      const basePackage = packages.find(p => p.name === tier.name);
+      if (!basePackage) return null;
+      
+      let price = basePackage.price;
+      let priceSource = 'base price';
+      
+      // Check nested state_pricing field
+      const pkg_state_pricing = (basePackage as any).state_pricing;
+      if (pkg_state_pricing && pkg_state_pricing[formData.state]) {
+        price = pkg_state_pricing[formData.state];
+        priceSource = `nested state_pricing[${formData.state}]`;
+      }
+      // Otherwise, use state pricing from separate collection
+      else if (statePricing && statePricing[tier.priceKey]) {
+        price = statePricing[tier.priceKey];
+        priceSource = `package_state/${formData.state}.${tier.priceKey}`;
+      }
+      
+      console.log(`  ${tier.name}: ${price} DHS (from ${priceSource})`);
+      
+      return {
+        ...basePackage,
+        price,
+        state: formData.state
+      };
+    }).filter(pkg => pkg !== null);
+    
+    // If no packages found by name, but we have state pricing, create virtual packages
+    if (adjustedPackages.length === 0 && statePricing) {
+      console.log('⚠️ [getFilteredPackages] No named packages found. Creating virtual packages from state pricing...');
+      
+      adjustedPackages = [
+        {
+          id: 'basic-virtual',
+          name: 'Basic',
+          price: statePricing.basic_price,
+          description: basicDesc,
+          features: [
+            llcFormation,
+            businessNameReservation,
+            operatingAgreement,
+            filingProcessing
+          ],
+          is_active: true,
+          state: formData.state
+        },
+        {
+          id: 'epic-virtual',
+          name: 'Epic',
+          price: statePricing.epic_price,
+          description: epicDesc,
+          features: [
+            llcFormation,
+            businessNameReservation,
+            operatingAgreement,
+            einAssistance,
+            `${registeredAgentService} (1 year)`,
+            filingProcessing
+          ],
+          is_active: true,
+          state: formData.state
+        },
+        {
+          id: 'ultimate-virtual',
+          name: 'Ultimate',
+          price: statePricing.ultimate_price,
+          description: ultimateDesc,
+          features: [
+            llcFormation,
+            businessNameReservation,
+            operatingAgreement,
+            einAssistance,
+            `${registeredAgentService} (2 years)`,
+            'Business credit building guidance',
+            bankingAssistance,
+            accountingSoftware,
+            complianceCheckIns,
+            taxConsultation,
+            dedicatedSupport,
+            annualReview
+          ],
+          is_active: true,
+          state: formData.state
+        }
+      ];
+      
+      console.log(`✅ [getFilteredPackages] Created 3 virtual packages from state pricing`);
+    }
+    
+    if (adjustedPackages.length === 0) {
+      console.log('❌ [getFilteredPackages] No packages available (no state pricing or named packages found)');
+    } else {
+      console.log(`✅ [getFilteredPackages] Filtered ${adjustedPackages.length} packages`);
+    }
+    
+    return adjustedPackages.sort((a, b) => a.price - b.price);
+  };
+
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    if (field === 'state') {
+      // Clear selected package when state changes
+      setFormData(prev => ({ ...prev, [field]: value, packageId: '' }));
+      // Load state pricing when state is selected
+      if (value) {
+        console.log(`📍 Selected state: ${value}, loading prices...`);
+        loadStatePricing(value);
+      }
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
+  };
+
+  const loadStatePricing = async (state: string) => {
+    try {
+      console.log(`💰 [GetStartedPage] Loading pricing for state: ${state}`);
+      const pricing = await getPackagePriceForState(state);
+      if (pricing) {
+        console.log(`✅ [GetStartedPage] Loaded pricing from package_state/${state}:`, pricing);
+        setStatePricing(pricing);
+      } else {
+        console.log(`⚠️ [GetStartedPage] No pricing found in package_state/${state}, will use nested state_pricing or base prices`);
+        setStatePricing(null);
+      }
+    } catch (error) {
+      console.error(`❌ [GetStartedPage] Error loading pricing for ${state}:`, error);
+      setStatePricing(null);
+    }
   };
 
   const handleNext = () => {
@@ -95,13 +371,34 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
     setShowPaymentModal(true);
   };
 
+  const getSelectedPackage = () => {
+    // Get the package from filtered packages (which have adjusted prices when state is selected)
+    const filtered = getFilteredPackages();
+    const selected = filtered.find(p => p?.id === formData.packageId);
+    return selected || packages.find(p => p.id === formData.packageId);
+  };
+
+  const getAmount = (): number => {
+    const selectedPkg = getSelectedPackage();
+    if (!selectedPkg) return 1000; // Default fallback
+    return selectedPkg.price * 100; // Convert to cents
+  };
+
   const handlePaymentConfirm = async () => {
     setLoading(true);
     try {
+      console.log('Submitting application with user:', { uid: user?.uid, email: user?.email });
+      
+      // Get state name from available states or US_STATES
+      const stateList = availableStates.length > 0 ? availableStates : US_STATES;
+      const selectedStateObj = stateList.find(s => s.code === formData.state);
+      const stateName = selectedStateObj?.name || formData.state;
+      
       const applicationData = {
         user_id: user!.uid,
         package_id: formData.packageId,
         state: formData.state,
+        state_name: stateName,
         company_name: formData.companyName,
         form_data: {
           memberName: formData.memberName,
@@ -117,7 +414,11 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
         payment_status: 'pending',
       };
 
+      console.log('Application data to save:', applicationData);
+
       const docId = await createDocument('llc_applications', applicationData);
+
+      console.log('Document created with ID:', docId);
 
       if (!docId) {
         throw new Error('Failed to create application');
@@ -128,11 +429,11 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
       window.open(whatsappUrl, '_blank');
 
       setShowPaymentModal(false);
-      alert('Application submitted successfully! Please send your payment proof via WhatsApp. You will be redirected to dashboard.');
-      onNavigate('dashboard');
-    } catch (error) {
+      toast.success('Application submitted successfully! Redirecting to dashboard...');
+      setTimeout(() => onNavigate('dashboard'), 1500);
+    } catch (error: any) {
       console.error('Error submitting application:', error);
-      alert('Error submitting application. Please try again.');
+      toast.error(`Error submitting application: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -167,14 +468,14 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
           <div className="inline-flex items-center space-x-2 px-4 py-2 bg-white/20 backdrop-blur-md rounded-full text-white text-sm font-semibold border border-white/30 mb-6">
             <Sparkles className="h-4 w-4" />
-            <span>Quick & Easy Process</span>
+            <span>{quickEasyProcess}</span>
           </div>
           
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4">
-            Start Your LLC Formation
+            {startFormation}
           </h1>
           <p className="text-xl text-blue-50 max-w-2xl mx-auto">
-            Complete the following steps to form your LLC
+            {completeSteps}
           </p>
         </div>
 
@@ -244,10 +545,10 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                     <MapPin className="h-8 w-8 text-white" />
                   </div>
                   <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-                    Select Your State
+                    {selectState}
                   </h2>
                   <p className="text-lg text-gray-600 dark:text-gray-400">
-                    Choose the state where you want to form your LLC
+                    {chooseStateDesc}
                   </p>
                 </div>
                 <select
@@ -255,8 +556,8 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                   onChange={(e) => handleInputChange('state', e.target.value)}
                   className="w-full px-6 py-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all text-lg font-medium"
                 >
-                  <option value="">Select a state...</option>
-                  {US_STATES.map((state) => (
+                  <option value="">{selectStateOption}</option>
+                  {availableStates.map((state) => (
                     <option key={state.code} value={state.code}>
                       {state.name}
                     </option>
@@ -272,44 +573,99 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                     <PackageIcon className="h-8 w-8 text-white" />
                   </div>
                   <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-                    Choose Your Package
+                    {choosePackage}
                   </h2>
                   <p className="text-lg text-gray-600 dark:text-gray-400">
-                    Select the service package that fits your needs
+                    {selectPackageDesc}
                   </p>
+                  {formData.state && (
+                    <p className="text-sm text-gray-500 dark:text-gray-300 mt-2">
+                      {showingPricesFor} {(availableStates.length > 0 ? availableStates : US_STATES).find(s => s.code === formData.state)?.name}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-4">
-                  {packages.map((pkg) => (
-                    <div
-                      key={pkg.id}
-                      onClick={() => handleInputChange('packageId', pkg.id)}
-                      className={`group border-2 rounded-2xl p-6 cursor-pointer transition-all duration-300 ${
-                        formData.packageId === pkg.id
-                          ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 shadow-xl scale-105'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-lg hover:scale-102'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                            {pkg.name}
-                          </h3>
-                          <p className="text-gray-600 dark:text-gray-400">
-                            {pkg.description}
-                          </p>
+                  {!formData.state ? (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <p>{selectStateFirst}</p>
+                    </div>
+                  ) : getFilteredPackages().length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                      <p>{loadingPackages}</p>
+                    </div>
+                  ) : (
+                    getFilteredPackages().map((pkg) => {
+                      if (!pkg) return null;
+                      const displayPrice = pkg.price;
+                      // Extract tier from name (e.g., "Wyoming Basic" -> "Basic")
+                      const tier = ['Basic', 'Epic', 'Ultimate'].find(t => pkg.name.includes(t)) || pkg.name;
+
+                      return (
+                        <div
+                          key={pkg.id}
+                          onClick={() => handleInputChange('packageId', pkg.id)}
+                          className={`group border-2 rounded-2xl p-6 cursor-pointer transition-all duration-300 ${
+                            formData.packageId === pkg.id
+                              ? 'border-blue-500 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 shadow-xl scale-105'
+                              : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-lg hover:scale-102'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                                {translateTierName(tier)}
+                              </h3>
+                              <p className="text-gray-600 dark:text-gray-400">
+                                {pkg.description}
+                              </p>
+                            </div>
+                            <div className="text-right ml-4">
+                              <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                                {displayPrice} DHS
+                              </div>
+                              <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                {formData.state ? forState + ' ' + US_STATES.find(s => s.code === formData.state)?.name : perState}
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-right ml-4">
-                          <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                            ${pkg.price}
-                          </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            + state fees
-                          </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {formData.packageId && (
+                  <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl border-2 border-blue-200 dark:border-blue-800">
+                    <h4 className="font-bold text-lg text-gray-900 dark:text-white mb-4">
+                      {packageDetails}
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h5 className="font-semibold text-gray-900 dark:text-white mb-3">{includedFeatures}</h5>
+                        <ul className="space-y-2">
+                          {packages.find(p => p.id === formData.packageId)?.features.map((feature, idx) => (
+                            <li key={idx} className="flex items-start text-gray-700 dark:text-gray-300">
+                              <span className="text-green-500 mr-3 font-bold text-lg">✓</span>
+                              <span>{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl">
+                        <h5 className="font-semibold text-gray-900 dark:text-white mb-2">{summary}</h5>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                          {getSelectedPackage()?.description}
+                        </p>
+                        <div className="p-3 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-lg">
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{totalPrice}</p>
+                          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                            {getSelectedPackage()?.price} DHS
+                          </p>
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -320,16 +676,16 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                     <Building2 className="h-8 w-8 text-white" />
                   </div>
                   <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-                    Business Information
+                    {businessInfo}
                   </h2>
                   <p className="text-lg text-gray-600 dark:text-gray-400">
-                    Tell us about your business
+                    {enterBusinessDetails}
                   </p>
                 </div>
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                      Company Name *
+                      {companyNameLabel} *
                     </label>
                     <input
                       type="text"
@@ -341,15 +697,15 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                      Business Type *
+                      {businessType} *
                     </label>
                     <select
                       value={formData.businessType}
                       onChange={(e) => handleInputChange('businessType', e.target.value)}
                       className="w-full px-6 py-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                     >
-                      <option value="single-member">Single-Member LLC</option>
-                      <option value="multi-member">Multi-Member LLC</option>
+                      <option value="single-member">{singleMemberLLC}</option>
+                      <option value="multi-member">{multiMemberLLC}</option>
                     </select>
                   </div>
                   <div>
@@ -375,16 +731,16 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                     <User className="h-8 w-8 text-white" />
                   </div>
                   <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-                    Contact Information
+                    {contactInfo}
                   </h2>
                   <p className="text-lg text-gray-600 dark:text-gray-400">
-                    How can we reach you?
+                    {enterContactDetails}
                   </p>
                 </div>
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                      Full Name *
+                      {memberNameLabel} *
                     </label>
                     <input
                       type="text"
@@ -396,18 +752,19 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                        Email *
+                        {emailLabel} *
                       </label>
                       <input
                         type="email"
                         value={formData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
+                        autoComplete="email"
                         className="w-full px-6 py-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                        Phone *
+                        {phoneLabel} *
                       </label>
                       <input
                         type="tel"
@@ -419,7 +776,7 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                      Street Address *
+                      {addressLabel} *
                     </label>
                     <input
                       type="text"
@@ -431,7 +788,7 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                        City *
+                        {cityLabel} *
                       </label>
                       <input
                         type="text"
@@ -442,7 +799,7 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
-                        ZIP Code *
+                        {zipCodeLabel} *
                       </label>
                       <input
                         type="text"
@@ -463,17 +820,17 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                     <Check className="h-8 w-8 text-white" />
                   </div>
                   <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-                    Review Your Information
+                    {reviewInfo}
                   </h2>
                   <p className="text-lg text-gray-600 dark:text-gray-400">
-                    Please review your information before submitting
+                    {reviewDesc}
                   </p>
                 </div>
                 <div className="space-y-4">
                   <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-blue-900/20 p-6 rounded-2xl border border-gray-200 dark:border-gray-600">
                     <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-3 flex items-center">
                       <MapPin className="h-5 w-5 mr-2 text-blue-600" />
-                      State
+                      {state}
                     </h3>
                     <p className="text-gray-700 dark:text-gray-300 text-lg">
                       {US_STATES.find(s => s.code === formData.state)?.name}
@@ -482,16 +839,34 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                   <div className="bg-gradient-to-r from-gray-50 to-purple-50 dark:from-gray-700 dark:to-purple-900/20 p-6 rounded-2xl border border-gray-200 dark:border-gray-600">
                     <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-3 flex items-center">
                       <PackageIcon className="h-5 w-5 mr-2 text-purple-600" />
-                      Package
+                      {packageLabel}
                     </h3>
-                    <p className="text-gray-700 dark:text-gray-300 text-lg">
-                      {packages.find(p => p.id === formData.packageId)?.name}
-                    </p>
+                    {getSelectedPackage() && (
+                      <>
+                        <p className="text-gray-700 dark:text-gray-300 text-lg font-semibold">
+                          {['Basic', 'Epic', 'Ultimate'].find(t => getSelectedPackage()?.name.includes(t))}
+                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">
+                          {getSelectedPackage()?.description}
+                        </p>
+                        <div className="mt-4">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{features}</h4>
+                          <ul className="space-y-1">
+                            {getSelectedPackage()?.features.map((feature, idx) => (
+                              <li key={idx} className="text-sm text-gray-600 dark:text-gray-400 flex items-start">
+                                <span className="text-green-500 mr-2">✓</span>
+                                {feature}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div className="bg-gradient-to-r from-gray-50 to-green-50 dark:from-gray-700 dark:to-green-900/20 p-6 rounded-2xl border border-gray-200 dark:border-gray-600">
                     <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-3 flex items-center">
                       <Building2 className="h-5 w-5 mr-2 text-green-600" />
-                      Business Details
+                      {businessDetails}
                     </h3>
                     <p className="text-gray-700 dark:text-gray-300">
                       <strong>Company Name:</strong> {formData.companyName}<br />
@@ -502,7 +877,7 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                   <div className="bg-gradient-to-r from-gray-50 to-orange-50 dark:from-gray-700 dark:to-orange-900/20 p-6 rounded-2xl border border-gray-200 dark:border-gray-600">
                     <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-3 flex items-center">
                       <User className="h-5 w-5 mr-2 text-orange-600" />
-                      Contact Information
+                      {contactInformationLabel}
                     </h3>
                     <p className="text-gray-700 dark:text-gray-300">
                       <strong>Name:</strong> {formData.memberName}<br />
@@ -524,7 +899,7 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
               className="group px-8 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 hover:scale-105"
             >
               <ChevronLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform" />
-              <span>Back</span>
+              <span>{backBtn}</span>
             </button>
 
             {currentStep < steps.length ? (
@@ -533,7 +908,7 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                 disabled={!isStepValid()}
                 className="group px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105"
               >
-                <span>Next Step</span>
+                <span>{nextStepBtn}</span>
                 <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </button>
             ) : (
@@ -542,7 +917,7 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
                 disabled={loading}
                 className="group px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl hover:scale-105"
               >
-                <span>{loading ? 'Submitting...' : 'Submit Application'}</span>
+                <span>{loading ? submittingBtn : submitBtn}</span>
                 <Check className="h-5 w-5 group-hover:scale-110 transition-transform" />
               </button>
             )}
@@ -555,6 +930,7 @@ export default function GetStartedPage({ onNavigate, selectedPackage }: GetStart
             loading={loading}
             applicationId="pending"
             userId={user?.uid || ''}
+            amount={getAmount()}
           />
         </div>
       </div>

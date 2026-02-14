@@ -117,15 +117,20 @@ export async function queryCollection<T>(
   constraints: QueryConstraint[]
 ): Promise<T[]> {
   try {
+    console.log(`Querying ${collectionName} with constraints:`, constraints);
     const collectionRef = collection(db, collectionName);
     const q = query(collectionRef, ...constraints);
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((doc) => ({
+    console.log(`Query returned ${querySnapshot.docs.length} documents from ${collectionName}`);
+    const results = querySnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     } as T));
-  } catch (error) {
+    console.log(`Mapped results:`, results);
+    return results;
+  } catch (error: any) {
     console.error(`Error querying ${collectionName}:`, error);
+    console.error('Error details:', { code: error.code, message: error.message });
     return [];
   }
 }
@@ -138,15 +143,19 @@ export async function createDocument<T>(
   data: T
 ): Promise<string | null> {
   try {
+    console.log(`Creating document in ${collectionName}:`, data);
     const collectionRef = collection(db, collectionName);
+    const timestamp = new Date().toISOString();
     const docRef = await addDoc(collectionRef, {
       ...data,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: timestamp,
+      updated_at: timestamp,
     });
+    console.log(`Document successfully created in ${collectionName} with ID:`, docRef.id);
     return docRef.id;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error creating document in ${collectionName}:`, error);
+    console.error('Error details:', { code: error.code, message: error.message });
     return null;
   }
 }
@@ -311,4 +320,47 @@ export async function createPackage(pkg: Package): Promise<string | null> {
  */
 export async function updatePackage(packageId: string, updates: Partial<Package>): Promise<boolean> {
   return updateDocument('packages', packageId, updates);
+}
+
+// ============================================================================
+// PACKAGE STATE PRICING OPERATIONS
+// ============================================================================
+
+export interface PackageStatePrice {
+  id: string;
+  state: string;
+  basic_price: number;
+  epic_price: number;
+  ultimate_price: number;
+  [key: string]: any;
+}
+
+/**
+ * Fetch package prices for all states from package_state collection
+ */
+export async function getPackagePricesByState(): Promise<PackageStatePrice[]> {
+  try {
+    console.log('Fetching package prices for all states...');
+    const prices = await getCollectionData<PackageStatePrice>('package_state');
+    console.log('Package prices by state:', prices);
+    return prices;
+  } catch (error) {
+    console.error('Error fetching package prices by state:', error);
+    return [];
+  }
+}
+
+/**
+ * Fetch package price for a specific state
+ */
+export async function getPackagePriceForState(state: string): Promise<PackageStatePrice | null> {
+  try {
+    console.log(`Fetching package prices for state: ${state}`);
+    const price = await getDocument<PackageStatePrice>('package_state', state);
+    console.log(`Package price for ${state}:`, price);
+    return price;
+  } catch (error) {
+    console.error(`Error fetching package price for state ${state}:`, error);
+    return null;
+  }
 }

@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { AdminAuthProvider } from './contexts/AdminAuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { TranslationProvider } from './contexts/TranslationContext';
+import { loadGitHubConfig, validateGitHubConfig } from './lib/githubConfig';
+import * as GitHubStorage from './lib/githubStorage';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import WhatsAppButton from './components/WhatsAppButton';
@@ -18,53 +21,47 @@ import AdminLoginPage from './pages/AdminLoginPage';
 import AdminSetupPage from './pages/AdminSetupPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 
-type Page = 'home' | 'services' | 'how-it-works' | 'contact' | 'get-started' | 'dashboard' | 'auth' | 'admin-login' | 'admin-setup' | 'admin-dashboard';
+type PageId = 'home' | 'services' | 'how-it-works' | 'contact' | 'get-started' | 'dashboard' | 'auth' | 'admin-login' | 'admin-setup' | 'admin-dashboard';
 
-function App() {
-  const [currentPage, setCurrentPage] = useState<Page>(() => {
-    const savedPage = localStorage.getItem('currentPage') as Page;
-    return savedPage || 'home';
-  });
-  const [pageData, setPageData] = useState<unknown>(null);
+const pageMap: Record<PageId, string> = {
+  'home': '/',
+  'services': '/services',
+  'how-it-works': '/how-it-works',
+  'contact': '/contact',
+  'get-started': '/get-started',
+  'dashboard': '/dashboard',
+  'auth': '/auth',
+  'admin-login': '/admin/login',
+  'admin-setup': '/admin/setup',
+  'admin-dashboard': '/admin/dashboard',
+};
+
+function AppContent() {
   const [showSplash, setShowSplash] = useState(true);
+  const routerNavigate = useNavigate();
 
-  // Save current page to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('currentPage', currentPage);
-  }, [currentPage]);
-
-  const handleNavigate = (page: string, data?: unknown) => {
-    setCurrentPage(page as Page);
-    setPageData(data || null);
+  // Create a navigation function that works with both old-style page IDs and new URLs
+  const handleNavigate = useCallback((page: string, data?: unknown) => {
+    const path = pageMap[page as PageId] || '/';
+    routerNavigate(path, { state: data || null });
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, [routerNavigate]);
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'home':
-        return <HomePage onNavigate={handleNavigate} />;
-      case 'services':
-        return <ServicesPage onNavigate={handleNavigate} />;
-      case 'how-it-works':
-        return <HomePage onNavigate={handleNavigate} />;
-      case 'contact':
-        return <ContactPage />;
-      case 'get-started':
-        return <GetStartedPage onNavigate={handleNavigate} selectedPackage={pageData as any} />;
-      case 'dashboard':
-        return <DashboardPage onNavigate={handleNavigate} />;
-      case 'auth':
-        return <AuthPage onNavigate={handleNavigate} />;
-      case 'admin-login':
-        return <AdminLoginPage onNavigate={handleNavigate} />;
-      case 'admin-setup':
-        return <AdminSetupPage onNavigate={handleNavigate} />;
-      case 'admin-dashboard':
-        return <AdminDashboardPage onNavigate={handleNavigate} />;
-      default:
-        return <HomePage onNavigate={handleNavigate} />;
+  useEffect(() => {
+    const githubConfig = loadGitHubConfig();
+    if (githubConfig.enabled) {
+      const validation = validateGitHubConfig(githubConfig);
+      if (validation.valid) {
+        GitHubStorage.initializeGitHubStorage({
+          owner: githubConfig.owner,
+          repo: githubConfig.repo,
+          token: githubConfig.token,
+          branch: githubConfig.branch,
+        });
+        console.log('✅ GitHub storage initialized');
+      }
     }
-  };
+  }, []);
 
   return (
     <ThemeProvider>
@@ -72,9 +69,22 @@ function App() {
         <AuthProvider>
           <AdminAuthProvider>
             {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
-            <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
-              <Header onNavigate={handleNavigate} currentPage={currentPage} />
-              <main>{renderPage()}</main>
+            <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors flex flex-col">
+              <Header onNavigate={handleNavigate} />
+              <main className="flex-grow">
+                <Routes>
+                  <Route path="/" element={<HomePage onNavigate={handleNavigate} />} />
+                  <Route path="/services" element={<ServicesPage onNavigate={handleNavigate} />} />
+                  <Route path="/how-it-works" element={<HomePage onNavigate={handleNavigate} />} />
+                  <Route path="/contact" element={<ContactPage />} />
+                  <Route path="/get-started" element={<GetStartedPage onNavigate={handleNavigate} />} />
+                  <Route path="/dashboard" element={<DashboardPage onNavigate={handleNavigate} />} />
+                  <Route path="/auth" element={<AuthPage onNavigate={handleNavigate} />} />
+                  <Route path="/admin/login" element={<AdminLoginPage onNavigate={handleNavigate} />} />
+                  <Route path="/admin/setup" element={<AdminSetupPage onNavigate={handleNavigate} />} />
+                  <Route path="/admin/dashboard" element={<AdminDashboardPage onNavigate={handleNavigate} />} />
+                </Routes>
+              </main>
               <Footer onNavigate={handleNavigate} />
               <WhatsAppButton />
               <AIChatAgent onNavigate={handleNavigate} />
@@ -83,6 +93,14 @@ function App() {
         </AuthProvider>
       </TranslationProvider>
     </ThemeProvider>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 }
 
